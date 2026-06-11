@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Base capability for the popup and settings windows. Privileged operations stay behind explicit Rust commands; the frontend only gets core defaults.",
+  "windows": ["popup", "settings"],
+  "permissions": ["core:default"]
+}

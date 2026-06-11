@@ -1,0 +1,17 @@
+:root {
+  --accent: #4f7cff;
+  color-scheme: light dark;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 14px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Transparent so the popup window's rounded card floats (window is transparent). */
+html,
+body {
+  margin: 0;
+  background: transparent;
+}

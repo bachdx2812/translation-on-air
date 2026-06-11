@@ -1,0 +1,118 @@
+.settings {
+  min-height: 100vh;
+  padding: 22px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  background: light-dark(#f5f5f7, #1c1c1e);
+  color: light-dark(#1c1c1e, #f2f2f7);
+  font-size: 14px;
+}
+
+.settings h1 {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 650;
+}
+
+.setting-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 18px;
+  background: light-dark(#ffffff, #2c2c2e);
+  border: 0.5px solid light-dark(rgba(0, 0, 0, 0.08), rgba(255, 255, 255, 0.08));
+  border-radius: 12px;
+}
+.setting-section > label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: light-dark(#6e6e73, #98989d);
+}
+
+input,
+select {
+  padding: 8px 11px;
+  border-radius: 8px;
+  font: inherit;
+  color: inherit;
+  background: light-dark(#ffffff, #1c1c1e);
+  border: 0.5px solid light-dark(rgba(0, 0, 0, 0.18), rgba(255, 255, 255, 0.16));
+}
+input:focus,
+select:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+  border-color: transparent;
+}
+
+button {
+  font: inherit;
+  padding: 7px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  color: inherit;
+  background: light-dark(#ffffff, #2c2c2e);
+  border: 0.5px solid light-dark(rgba(0, 0, 0, 0.18), rgba(255, 255, 255, 0.18));
+  transition: background 0.15s;
+}
+button:hover {
+  background: light-dark(#ececef, #3a3a3c);
+}
+
+.radios {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  background: light-dark(rgba(0, 0, 0, 0.05), rgba(255, 255, 255, 0.06));
+  border-radius: 10px;
+}
+.radios label {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 7px;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.radios input {
+  accent-color: var(--accent);
+}
+
+.status {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--accent);
+}
+.hint {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: light-dark(#8e8e93, #98989d);
+}
+.key-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.key-row input {
+  flex: 1;
+}
+.err {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #e5484d;
+}
+.hotkey-field {
+  align-self: stretch;
+  text-align: center;
+  font-weight: 600;
+  padding: 10px;
+  letter-spacing: 0.02em;
+}

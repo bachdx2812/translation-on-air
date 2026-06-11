@@ -1,0 +1,34 @@
+[package]
+name = "translate-on-air"
+version = "0.1.0"
+description = "Translate On Air — macOS background translation app"
+authors = ["bachdx"]
+edition = "2021"
+
+[lib]
+# The `_lib` suffix keeps the lib name distinct from the bin name (Windows linker quirk).
+name = "translate_on_air_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+# tray-icon: menubar tray (no plugin needed). image-png: load PNG tray/app icons.
+tauri = { version = "2", features = ["macos-private-api", "tray-icon", "image-png"] }
+tauri-plugin-opener = "2"
+tauri-plugin-global-shortcut = "2"
+tauri-plugin-clipboard-manager = "2"
+tauri-plugin-store = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+reqwest = { version = "0.12", features = ["json"] }
+tokio = { version = "1", features = ["time", "process", "io-util"] }
+
+# macOS-only native bits: synthesize Cmd+C (core-graphics) and check the
+# Accessibility permission required to post synthetic key events.
+[target.'cfg(target_os = "macos")'.dependencies]
+core-graphics = "0.25"
+macos-accessibility-client = "0.0.2"
+keyring = { version = "3", features = ["apple-native"] }
