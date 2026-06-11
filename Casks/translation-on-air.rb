@@ -4,9 +4,8 @@ cask "translation-on-air" do
   # notarized artifacts. :no_check is fine for a personal tap.
   sha256 :no_check
 
-  # NOTE: verify this filename matches the actual release asset after the first
-  # `vX.Y.Z` tag (Tauri names it from productName + version + arch).
-  url "https://github.com/bachdx2812/translation-on-air/releases/download/v#{version}/Translate%20On%20Air_#{version}_universal.dmg"
+  # Tauri replaces spaces in the productName with dots for the bundle filename.
+  url "https://github.com/bachdx2812/translation-on-air/releases/download/v#{version}/Translate.On.Air_#{version}_universal.dmg"
   name "Translate On Air"
   desc "Menubar translation app with a global hotkey and Japanese furigana"
   homepage "https://github.com/bachdx2812/translation-on-air"
