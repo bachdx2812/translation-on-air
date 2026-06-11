@@ -19,7 +19,7 @@ Built with **Tauri v2 + Rust + React**.
 ## Install (Homebrew)
 
 ```sh
-brew install --cask https://raw.githubusercontent.com/bachdx2812/translation-on-air/main/Casks/translation-on-air.rb
+brew install --cask bachdx2812/tap/translation-on-air
 ```
 
 Then grant Accessibility:
@@ -62,3 +62,7 @@ pnpm test                    # Frontend: ruby rendering, popup state
 Push a tag `vX.Y.Z` → GitHub Actions builds a universal macOS `.dmg` and publishes
 a Release (`.github/workflows/release.yml`). Set the `APPLE_*` repo secrets to get
 signed + notarized builds; otherwise the `.dmg` is unsigned (see cask caveats).
+
+The Homebrew cask lives in the **`bachdx2812/homebrew-tap`** repo
+(`Casks/translation-on-air.rb`). After a release, bump its `version` and `sha256`
+(`shasum -a 256` of the new `.dmg`).
