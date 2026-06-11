@@ -1,6 +1,6 @@
 [package]
 name = "translate-on-air"
-version = "0.1.0"
+version = "0.1.1"
 description = "Translate On Air — macOS background translation app"
 authors = ["bachdx"]
 edition = "2021"
