@@ -92,23 +92,42 @@ async fn poll_for_nonempty(app: &AppHandle) -> Option<String> {
 
 /// Hotkey pipeline: gate on Accessibility, capture the selection, emit the result
 /// to the popup webview, then show the popup. Runs off the hotkey handler thread.
+/// Whether this run has already surfaced the native Accessibility dialog.
+static AX_PROMPTED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
 pub async fn run_capture_pipeline(app: &AppHandle) {
     if !crate::accessibility::is_trusted(false) {
-        // Surface the system prompt once; guide the user via the popup regardless.
-        let _ = crate::accessibility::is_trusted(true);
-        emit_error(app, "ax-missing");
-        let _ = crate::windows::show_popup_inner(app);
+        use std::sync::atomic::Ordering;
+        // Prefer the native system dialog (nicer UX). macOS only shows it while
+        // the app is not yet in the Accessibility list, so on repeat presses —
+        // or a stale grant after an app update — fall back to the in-popup
+        // guidance. Never both at once.
+        if !AX_PROMPTED.swap(true, Ordering::SeqCst) {
+            let _ = crate::accessibility::is_trusted(true);
+        } else {
+            emit_error(app, "ax-missing");
+            let _ = crate::windows::show_popup_inner(app);
+        }
         return;
     }
 
     match capture_selection(app).await {
         Ok(text) => {
-            let _ = app.emit_to("popup", "capture-done", CaptureDonePayload { text });
+            return run_text_pipeline(app, text).await;
         }
         Err(CaptureError::NoSelection) => emit_error(app, "no-selection"),
         Err(CaptureError::SynthFailed) => emit_error(app, "capture-failed"),
     }
 
+    let _ = crate::windows::show_popup_inner(app);
+}
+
+/// Translate already-captured text: emit it to the popup webview and show the
+/// popup. Shared tail of the hotkey pipeline and the macOS Services entry point
+/// (right-click → Services), which receives text via NSPasteboard and therefore
+/// needs no Accessibility permission.
+pub async fn run_text_pipeline(app: &AppHandle, text: String) {
+    let _ = app.emit_to("popup", "capture-done", CaptureDonePayload { text });
     let _ = crate::windows::show_popup_inner(app);
 }
 
