@@ -8,5 +8,27 @@
        into the generated Info.plist at build time. -->
   <key>LSUIElement</key>
   <true/>
+
+  <!-- Right-click selected text in any app → Services → Translate with Translate
+       On Air. NSMessage names the provider selector (services.rs); NSPortName must
+       match the app (bundle) name so the OS can route the request. -->
+  <key>NSServices</key>
+  <array>
+    <dict>
+      <key>NSMenuItem</key>
+      <dict>
+        <key>default</key>
+        <string>Translate with Translate On Air</string>
+      </dict>
+      <key>NSMessage</key>
+      <string>translateSelection</string>
+      <key>NSPortName</key>
+      <string>Translate On Air</string>
+      <key>NSSendTypes</key>
+      <array>
+        <string>NSStringPboardType</string>
+      </array>
+    </dict>
+  </array>
 </dict>
 </plist>

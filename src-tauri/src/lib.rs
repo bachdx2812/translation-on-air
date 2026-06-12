@@ -4,6 +4,8 @@ mod commands;
 mod hotkey;
 mod keychain;
 mod providers;
+#[cfg(target_os = "macos")]
+mod services;
 mod settings;
 mod tray;
 mod windows;
@@ -38,6 +40,7 @@ pub fn run() {
             windows::show_settings,
             windows::resize_popup,
             accessibility::check_accessibility,
+            accessibility::request_accessibility,
             accessibility::open_accessibility_settings,
             commands::translate,
             commands::detect_providers,
@@ -74,6 +77,9 @@ pub fn run() {
 
             tray::create(app.handle())?;
             hotkey::register_from_settings(app.handle())?;
+            // Right-click → Services → Translate (Info.plist NSServices entry).
+            #[cfg(target_os = "macos")]
+            services::register(app.handle());
             Ok(())
         })
         .run(tauri::generate_context!())

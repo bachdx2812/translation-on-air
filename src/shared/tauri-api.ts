@@ -13,6 +13,7 @@ export const resizePopup = (width: number, height: number): Promise<void> =>
 
 // --- Accessibility (macOS permission for synthetic Cmd+C) ---
 export const checkAccessibility = (): Promise<boolean> => invoke("check_accessibility");
+export const requestAccessibility = (): Promise<boolean> => invoke("request_accessibility");
 export const openAccessibilitySettings = (): Promise<void> =>
   invoke("open_accessibility_settings");
 

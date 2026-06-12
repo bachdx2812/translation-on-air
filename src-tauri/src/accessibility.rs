@@ -24,6 +24,14 @@ pub fn check_accessibility() -> bool {
     is_trusted(false)
 }
 
+/// Trigger the system Accessibility prompt (registers the app in the
+/// Privacy & Security list). Only called from an explicit user click so the
+/// system dialog never stacks on top of the in-app guidance.
+#[tauri::command]
+pub fn request_accessibility() -> bool {
+    is_trusted(true)
+}
+
 /// Open System Settings → Privacy & Security → Accessibility so the user can
 /// grant permission.
 #[tauri::command]

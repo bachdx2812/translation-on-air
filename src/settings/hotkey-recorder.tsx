@@ -1,4 +1,4 @@
-import { useState, type KeyboardEvent } from "react";
+import { useEffect, useState } from "react";
 import { setHotkey } from "../shared/tauri-api";
 
 /** Map a KeyboardEvent.code to an accelerator key token (letters/digits/F-keys). */
@@ -15,33 +15,43 @@ export function HotkeyRecorder({ initial }: { initial: string }) {
   const [recording, setRecording] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const onKeyDown = (e: KeyboardEvent) => {
+  // Listen at the window level while recording. WKWebView (every Tauri window on
+  // macOS) does NOT focus a <button> on click, so an element-level onKeyDown
+  // would never fire — key events land on <body>.
+  useEffect(() => {
     if (!recording) return;
-    e.preventDefault();
-    if (e.key === "Escape") {
-      setRecording(false);
-      return;
-    }
-    const mods: string[] = [];
-    if (e.metaKey) mods.push("Cmd");
-    if (e.ctrlKey) mods.push("Ctrl");
-    if (e.altKey) mods.push("Alt");
-    if (e.shiftKey) mods.push("Shift");
-    const key = keyFromCode(e.code);
-    if (!key || mods.length === 0) return; // need ≥1 modifier + 1 key
-    setRecording(false);
-    void save([...mods, key].join("+"));
-  };
 
-  const save = async (combo: string) => {
-    try {
-      await setHotkey(combo);
-      setAccel(combo);
-      setError(null);
-    } catch (err) {
-      setError(String(err));
-    }
-  };
+    const save = async (combo: string) => {
+      try {
+        await setHotkey(combo);
+        setAccel(combo);
+        setError(null);
+      } catch (err) {
+        setError(String(err));
+      }
+    };
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.key === "Escape") {
+        setRecording(false);
+        return;
+      }
+      const mods: string[] = [];
+      if (e.metaKey) mods.push("Cmd");
+      if (e.ctrlKey) mods.push("Ctrl");
+      if (e.altKey) mods.push("Alt");
+      if (e.shiftKey) mods.push("Shift");
+      const key = keyFromCode(e.code);
+      if (!key || mods.length === 0) return; // need ≥1 modifier + 1 key
+      setRecording(false);
+      void save([...mods, key].join("+"));
+    };
+
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
+  }, [recording]);
 
   const message =
     error === "invalid-accelerator"
@@ -56,7 +66,6 @@ export function HotkeyRecorder({ initial }: { initial: string }) {
       <button
         type="button"
         className="hotkey-field"
-        onKeyDown={onKeyDown}
         onClick={() => {
           setRecording(true);
           setError(null);

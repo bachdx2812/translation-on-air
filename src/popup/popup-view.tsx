@@ -4,6 +4,7 @@ import {
   getSettings,
   hidePopup,
   openAccessibilitySettings,
+  requestAccessibility,
   resizePopup,
   showSettings,
   type CaptureDonePayload,
@@ -180,8 +181,12 @@ function CaptureErrorView({ code }: { code: CaptureErrorCode }) {
     return (
       <div className="error">
         <p>Accessibility permission is required to read the selected text.</p>
+        <p className="hint">
+          Already enabled in the list? Remove the app with “−” and add it back — app updates
+          invalidate the old grant.
+        </p>
+        <button onClick={() => void requestAccessibility()}>Grant permission</button>
         <button onClick={() => void openAccessibilitySettings()}>Open System Settings</button>
-        <button onClick={() => void showSettings()}>Settings</button>
       </div>
     );
   }
