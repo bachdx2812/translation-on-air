@@ -26,6 +26,10 @@ export const deleteOpenAiKey = (): Promise<void> => invoke("delete_openai_key");
 export const hasOpenAiKey = (): Promise<boolean> => invoke("has_openai_key");
 export const copyText = (text: string): Promise<void> => invoke("copy_text", { text });
 
+// --- Selection bubble (PopClip-style) ---
+export const bubbleTranslate = (): Promise<void> => invoke("bubble_translate");
+export const hideBubble = (): Promise<void> => invoke("hide_bubble");
+
 // --- Settings (persisted prefs) ---
 export const getSettings = (): Promise<Settings> => invoke("get_settings");
 export const setSettings = (patch: SettingsPatch): Promise<void> =>

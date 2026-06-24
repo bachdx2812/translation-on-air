@@ -10,8 +10,12 @@
   <true/>
 
   <!-- Right-click selected text in any app → Services → Translate with Translate
-       On Air. NSMessage names the provider selector (services.rs); NSPortName must
-       match the app (bundle) name so the OS can route the request. -->
+       On Air. Secondary to the selection bubble (selection.rs): macOS defaults
+       third-party Services to DISABLED, so the bubble is the primary UX. NSMessage
+       names the provider selector (services.rs); NSPortName must match the app
+       (bundle) name so the OS can route the request. NSSendTypes uses the modern
+       UTI (public.utf8-plain-text) — the legacy NSStringPboardType name no longer
+       matches text selections on recent macOS. NSKeyEquivalent gives ⌘⌃T. -->
   <key>NSServices</key>
   <array>
     <dict>
@@ -24,8 +28,15 @@
       <string>translateSelection</string>
       <key>NSPortName</key>
       <string>Translate On Air</string>
+      <key>NSKeyEquivalent</key>
+      <dict>
+        <key>default</key>
+        <string>@^t</string>
+      </dict>
       <key>NSSendTypes</key>
       <array>
+        <string>public.utf8-plain-text</string>
+        <string>public.plain-text</string>
         <string>NSStringPboardType</string>
       </array>
     </dict>

@@ -1,39 +1,72 @@
+/* The card FILLS the transparent window (Rust resizes the window to the content
+   height), so there's no window backing showing as a faint layer around it —
+   only the 4 rounded corners are transparent. Opaque, NO backdrop-filter
+   (WebKit's blur ignores border-radius and leaks a square) and NO box-shadow
+   (it would be clipped by the window anyway; the window itself has shadow:false
+   to avoid square corners). */
 .popup {
-  position: relative;
-  max-height: 100vh;
-  overflow-y: auto;
+  box-sizing: border-box;
+  min-height: 100vh;
   padding: 16px 18px 12px;
+  border-radius: 16px;
+  background: light-dark(#f6f6f8, #1f1f22);
+  border: 0.5px solid light-dark(rgba(0, 0, 0, 0.14), rgba(255, 255, 255, 0.14));
+  color: light-dark(#1c1c1e, #f2f2f7);
+  font-size: 15px;
+}
+.popup-body {
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  border-radius: 16px;
-  background: light-dark(rgba(252, 252, 253, 0.86), rgba(28, 28, 30, 0.82));
-  -webkit-backdrop-filter: saturate(180%) blur(24px);
-  backdrop-filter: saturate(180%) blur(24px);
-  border: 0.5px solid light-dark(rgba(0, 0, 0, 0.14), rgba(255, 255, 255, 0.14));
-  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.28);
-  color: light-dark(#1c1c1e, #f2f2f7);
-  font-size: 14px;
+  gap: 14px;
+  max-height: calc(100vh - 28px);
+  overflow-y: auto;
+}
+/* Never let the column shrink its children: if the window is shorter than the
+   content, the body scrolls — children keep full height and the source/
+   translation can never overflow into each other. */
+.popup-body > * {
+  flex-shrink: 0;
 }
 
-/* Settings gear — top-right corner. */
+/* Header row: language switcher (or brand) on the left, gear on the right. */
+.popup-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.popup-header .lang-switcher {
+  flex: 1;
+  min-width: 0;
+}
+.popup-header .brand {
+  flex: 1;
+  font-size: 0.82rem;
+  font-weight: 600;
+  opacity: 0.6;
+}
+
+/* Settings gear — inline in the header, clearly tappable. */
 .gear {
-  position: absolute;
-  top: 12px;
-  right: 14px;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: none;
-  background: transparent;
+  background: light-dark(rgba(0, 0, 0, 0.05), rgba(255, 255, 255, 0.08));
   color: inherit;
-  font-size: 0.95rem;
+  font-size: 1rem;
   line-height: 1;
-  padding: 2px 4px;
-  opacity: 0.4;
+  border-radius: 8px;
+  opacity: 0.7;
   cursor: pointer;
-  transition: opacity 0.15s;
-  z-index: 3;
+  transition: opacity 0.15s, background 0.15s;
 }
 .gear:hover {
-  opacity: 0.95;
+  opacity: 1;
+  background: light-dark(rgba(0, 0, 0, 0.1), rgba(255, 255, 255, 0.14));
 }
 
 /* Segmented language switcher. */
@@ -51,7 +84,7 @@
   color: inherit;
   padding: 6px 8px;
   border-radius: 7px;
-  font-size: 0.82rem;
+  font-size: 0.84rem;
   cursor: pointer;
   transition: background 0.15s, box-shadow 0.15s;
 }
@@ -61,29 +94,20 @@
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.16);
 }
 
-/* Side-by-side source | translation. */
-.panels {
-  display: flex;
-  gap: 16px;
-  align-items: flex-start;
-}
+/* Stacked panels: translation (primary) on top, source (muted) below. Each is
+   a self-contained block in normal flow — they can never overlap. */
 .panel {
-  flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
-.panel + .panel {
-  padding-left: 16px;
-  border-left: 0.5px solid light-dark(rgba(0, 0, 0, 0.1), rgba(255, 255, 255, 0.12));
+.translation-panel {
+  min-height: 28px;
 }
-.panel-label {
-  font-size: 0.64rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  font-weight: 600;
-  opacity: 0.45;
+.divider {
+  height: 0.5px;
+  background: light-dark(rgba(0, 0, 0, 0.12), rgba(255, 255, 255, 0.14));
 }
 
 /* Preserve input formatting (line breaks) via pre-wrap. */
@@ -92,24 +116,34 @@
   margin: 0;
   white-space: pre-wrap;
   word-break: break-word;
-  line-height: 1.5;
+  overflow-wrap: anywhere;
 }
+/* Source: secondary, muted. */
 .src-text {
-  font-size: 0.92rem;
-  color: light-dark(#3a3a3c, #c7c7cc);
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: light-dark(#5b5b60, #a0a0a6);
 }
+/* Translation: primary, the thing the user came for. */
 .translation {
-  font-size: 1.05rem;
+  font-size: 1.3rem;
+  font-weight: 500;
+  line-height: 1.5;
 }
 
 .furigana {
   margin: 0;
   white-space: pre-wrap;
   word-break: break-word;
-  font-size: 1.15rem;
-  line-height: 2.2;
+  font-size: 1.2rem;
+  line-height: 2.1;
   ruby-position: over;
   -webkit-ruby-position: over;
+}
+.source-panel .furigana {
+  font-size: 1rem;
+  line-height: 1.9;
+  opacity: 0.8;
 }
 .furigana rt {
   font-size: 0.5em;
@@ -133,13 +167,14 @@
   }
 }
 
+/* Result block: translation, then a right-aligned Copy button. */
 .result {
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
 .copy-btn {
-  align-self: flex-start;
+  align-self: flex-end;
   padding: 5px 14px;
   border: none;
   border-radius: 8px;
@@ -173,11 +208,19 @@
 .hint {
   margin: 0;
   color: light-dark(#8e8e93, #98989d);
-  font-size: 0.85rem;
+  font-size: 0.88rem;
 }
+
+/* ESC affordance — a small keycap pill, clearly legible. */
 .esc-hint {
   margin: 0;
-  text-align: right;
-  font-size: 0.68rem;
-  color: light-dark(#aeaeb2, #636366);
+  align-self: flex-end;
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: light-dark(#6e6e73, #aeaeb2);
+  background: light-dark(rgba(0, 0, 0, 0.05), rgba(255, 255, 255, 0.08));
+  border: 0.5px solid light-dark(rgba(0, 0, 0, 0.12), rgba(255, 255, 255, 0.12));
+  border-radius: 5px;
+  padding: 2px 7px;
 }

@@ -1,5 +1,9 @@
 .settings {
-  min-height: 100vh;
+  /* Fixed to the window height and scrollable, so every section is reachable
+     even when the window is small (no need to resize the window to scroll). */
+  height: 100vh;
+  overflow-y: auto;
+  box-sizing: border-box;
   padding: 22px 24px;
   display: flex;
   flex-direction: column;
@@ -7,6 +11,10 @@
   background: light-dark(#f5f5f7, #1c1c1e);
   color: light-dark(#1c1c1e, #f2f2f7);
   font-size: 14px;
+}
+/* Sections keep their natural height so the list scrolls instead of squashing. */
+.settings > * {
+  flex-shrink: 0;
 }
 
 .settings h1 {
@@ -46,6 +54,31 @@ select:focus {
   outline: 2px solid var(--accent);
   outline-offset: -1px;
   border-color: transparent;
+}
+
+/* Checkbox row: opt out of the uppercase section-label styling. */
+.setting-section > label.setting-check {
+  flex-direction: row;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-transform: none;
+  letter-spacing: normal;
+  font-size: 0.9rem;
+  font-weight: 400;
+  color: inherit;
+  cursor: pointer;
+}
+.setting-check input[type="checkbox"] {
+  width: auto;
+  padding: 0;
+  margin: 0;
+}
+.setting-hint {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: light-dark(#8e8e93, #98989d);
 }
 
 button {
