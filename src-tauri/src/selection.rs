@@ -41,7 +41,7 @@ fn take_selected() -> String {
 #[cfg(target_os = "macos")]
 unsafe fn read_selected_text() -> Option<String> {
     use accessibility_sys::{
-        kAXErrorSuccess, kAXFocusedUIElementAttribute, kAXRoleAttribute, kAXSelectedTextAttribute,
+        kAXErrorSuccess, kAXFocusedUIElementAttribute, kAXSelectedTextAttribute,
         AXUIElementCopyAttributeValue, AXUIElementCreateSystemWide, AXUIElementRef,
     };
     use core_foundation::base::{CFRelease, CFTypeRef, TCFType};
@@ -68,25 +68,19 @@ unsafe fn read_selected_text() -> Option<String> {
     }
     let focused = match copy_attr(system, kAXFocusedUIElementAttribute) {
         Ok(v) => v,
-        Err(e) => {
+        Err(_) => {
             CFRelease(system as CFTypeRef);
-            eprintln!("[bubble] AX focused-element err={e}");
             return None;
         }
     };
     CFRelease(system as CFTypeRef);
 
-    // Diagnostic: what kind of element is focused (helps spot our own webview).
-    if let Ok(role) = copy_attr(focused as AXUIElementRef, kAXRoleAttribute) {
-        let r = CFString::wrap_under_create_rule(role as CFStringRef).to_string();
-        eprintln!("[bubble] focused role={r}");
-    }
-
+    // Many apps (browsers, PDF) focus an AXScrollArea with no AXSelectedText;
+    // the caller falls back to a synthetic Cmd+C in that case.
     let text_ref = match copy_attr(focused as AXUIElementRef, kAXSelectedTextAttribute) {
         Ok(v) => v,
-        Err(e) => {
+        Err(_) => {
             CFRelease(focused);
-            eprintln!("[bubble] AX selected-text err={e}");
             return None;
         }
     };
@@ -130,10 +124,6 @@ fn on_mouse_up(app: &AppHandle) {
 
     // 1) Try the Accessibility API first — passive, no clipboard disturbance.
     let ax = unsafe { read_selected_text() };
-    eprintln!(
-        "[bubble] mouseUp dragged={dragged} ax={:?}",
-        ax.as_deref().map(|t| t.chars().take(30).collect::<String>())
-    );
     if let Some(t) = ax {
         if !t.trim().is_empty() {
             show_bubble(app, t, up);
@@ -181,13 +171,11 @@ fn show_bubble(app: &AppHandle, text: String, at: Option<(f64, f64)>) {
         *g = text;
     }
     let Some((cx, cy)) = at.or_else(|| app.cursor_position().ok().map(|p| (p.x, p.y))) else {
-        eprintln!("[bubble] no cursor position");
         return;
     };
     let _ = (BUBBLE_W, BUBBLE_H);
 
     let Some(win) = app.get_webview_window("bubble") else {
-        eprintln!("[bubble] ERROR: no 'bubble' window");
         return;
     };
 
@@ -202,10 +190,6 @@ fn show_bubble(app: &AppHandle, text: String, at: Option<(f64, f64)>) {
     // show() only (no set_focus): an Accessory app ordering a window front does
     // not steal first-responder from the host app.
     let _ = win.show();
-    eprintln!(
-        "[bubble] shown at physical ({x:.0}, {y:.0}) visible={:?}",
-        win.is_visible()
-    );
 }
 
 /// Install the global mouse-up monitor. Must run on the main thread (setup does).
@@ -236,13 +220,9 @@ pub fn register(app: &AppHandle) {
         NSEvent::addGlobalMonitorForEventsMatchingMask_handler(NSEventMask::LeftMouseUp, &up_handler);
 
     // Keep the monitors (and their blocks) alive for the app's lifetime.
-    match (down_token, up_token) {
-        (Some(d), Some(u)) => {
-            std::mem::forget(d);
-            std::mem::forget(u);
-            eprintln!("[bubble] global mouse monitors installed");
-        }
-        _ => eprintln!("[bubble] ERROR: failed to install mouse monitors"),
+    if let (Some(d), Some(u)) = (down_token, up_token) {
+        std::mem::forget(d);
+        std::mem::forget(u);
     }
 }
 
