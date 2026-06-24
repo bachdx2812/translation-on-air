@@ -17,9 +17,8 @@
   padding: 0 14px;
   border-radius: 16px;
   border: 0.5px solid light-dark(rgba(0, 0, 0, 0.16), rgba(255, 255, 255, 0.18));
-  background: light-dark(rgba(252, 252, 253, 0.92), rgba(40, 40, 44, 0.92));
-  -webkit-backdrop-filter: saturate(180%) blur(20px);
-  backdrop-filter: saturate(180%) blur(20px);
+  /* Opaque, no backdrop-filter (it leaks a square behind the rounded pill). */
+  background: light-dark(#ffffff, #2a2a2e);
   color: light-dark(#1c1c1e, #f2f2f7);
   font-size: 0.85rem;
   font-weight: 600;

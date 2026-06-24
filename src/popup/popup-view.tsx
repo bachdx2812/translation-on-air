@@ -20,7 +20,7 @@ import "../styles/popup.css";
 
 // phase 06 loads the persisted default; until then Vietnamese (the product default).
 const DEFAULT_LANG: TargetLang = "vi";
-const POPUP_WIDTH = 440;
+const POPUP_WIDTH = 460;
 
 const ERROR_MESSAGES: Record<string, string> = {
   "not-configured": "No provider configured — add an OpenAI key in Settings (or sign in to Claude).",

@@ -18,11 +18,12 @@
         "visible": false,
         "decorations": false,
         "transparent": true,
+        "shadow": false,
         "alwaysOnTop": true,
         "center": true,
         "resizable": false,
-        "width": 680,
-        "height": 220,
+        "width": 460,
+        "height": 180,
         "focus": false
       },
       {
