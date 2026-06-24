@@ -29,6 +29,23 @@ export type ProviderStatus = {
 
 export type ProviderMode = "auto" | "openai" | "claude";
 
+// --- Translation history (conversations) ---
+export type TurnKind = "incoming" | "reply";
+
+export type HistoryTurn = {
+  kind: TurnKind;
+  input: string; // the text that was translated
+  output: string; // its translation
+  at: number; // unix ms
+};
+
+export type Conversation = {
+  id: string;
+  created_at: number; // unix ms
+  target_lang: TargetLang; // the original translation language
+  turns: HistoryTurn[];
+};
+
 export type Settings = {
   hotkey: string;
   target_lang: TargetLang;

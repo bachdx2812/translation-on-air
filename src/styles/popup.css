@@ -192,6 +192,81 @@
   opacity: 0.88;
 }
 
+/* Reply thread + composer. */
+.reply-turn {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.reply-in {
+  align-self: flex-start;
+  font-size: 0.85rem;
+  color: light-dark(#6c6c70, #98989d);
+}
+.reply-btn {
+  align-self: flex-start;
+  padding: 6px 14px;
+  border: 0.5px solid light-dark(rgba(0, 0, 0, 0.18), rgba(255, 255, 255, 0.2));
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.reply-btn:hover {
+  background: light-dark(rgba(0, 0, 0, 0.05), rgba(255, 255, 255, 0.08));
+}
+.reply-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.reply-input {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  padding: 9px 11px;
+  border-radius: 9px;
+  border: 0.5px solid light-dark(rgba(0, 0, 0, 0.2), rgba(255, 255, 255, 0.2));
+  background: light-dark(#ffffff, rgba(255, 255, 255, 0.06));
+  color: inherit;
+  font: inherit;
+  font-size: 0.95rem;
+}
+.reply-input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+  border-color: transparent;
+}
+.reply-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.reply-cancel,
+.reply-send {
+  padding: 5px 14px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  border: 0.5px solid transparent;
+}
+.reply-cancel {
+  background: transparent;
+  color: inherit;
+  border-color: light-dark(rgba(0, 0, 0, 0.18), rgba(255, 255, 255, 0.2));
+}
+.reply-send {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+}
+.reply-send:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
 .error {
   display: flex;
   flex-direction: column;

@@ -1,5 +1,12 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { Translated, TargetLang, ProviderStatus, Settings, SettingsPatch } from "./types";
+import type {
+  Translated,
+  TargetLang,
+  ProviderStatus,
+  Settings,
+  SettingsPatch,
+  Conversation,
+} from "./types";
 
 // Typed wrappers around Rust commands. Keeping invoke calls in one module means
 // view components never reference raw command-name strings.
@@ -8,6 +15,7 @@ import type { Translated, TargetLang, ProviderStatus, Settings, SettingsPatch } 
 export const showPopup = (): Promise<void> => invoke("show_popup");
 export const hidePopup = (): Promise<void> => invoke("hide_popup");
 export const showSettings = (): Promise<void> => invoke("show_settings");
+export const showHistory = (): Promise<void> => invoke("show_history");
 export const resizePopup = (width: number, height: number): Promise<void> =>
   invoke("resize_popup", { width, height });
 
@@ -35,6 +43,21 @@ export const getSettings = (): Promise<Settings> => invoke("get_settings");
 export const setSettings = (patch: SettingsPatch): Promise<void> =>
   invoke("set_settings", { patch });
 export const setHotkey = (accel: string): Promise<void> => invoke("set_hotkey", { accel });
+
+// --- Translation history (local) ---
+export const historyGet = (): Promise<Conversation[]> => invoke("history_get");
+export const historySave = (conversation: Conversation): Promise<void> =>
+  invoke("history_save", { conversation });
+export const historyClear = (): Promise<void> => invoke("history_clear");
+
+// --- Reply (translate a reply back into the source language, with context) ---
+export const translateReply = (
+  reply: string,
+  originalSource: string,
+  originalTranslation: string,
+  replyLang: TargetLang,
+): Promise<Translated> =>
+  invoke("translate_reply", { reply, originalSource, originalTranslation, replyLang });
 
 // --- Events emitted by the capture pipeline to the popup window ---
 export type CaptureDonePayload = { text: string };

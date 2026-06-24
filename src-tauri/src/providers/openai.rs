@@ -18,13 +18,14 @@ fn client() -> &'static reqwest::Client {
     })
 }
 
+/// Translate `text` using a caller-built system prompt (so both plain
+/// translation and contextual replies share one request path).
 pub async fn translate(
     key: &str,
     model: &str,
+    sys: &str,
     text: &str,
-    target_lang: &str,
 ) -> Result<Translated, ProviderError> {
-    let sys = prompt::system_prompt(target_lang);
     let schema: serde_json::Value =
         serde_json::from_str(prompt::FURIGANA_SCHEMA).map_err(|_| ProviderError::BadResponse)?;
 
