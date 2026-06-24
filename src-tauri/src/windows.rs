@@ -26,25 +26,6 @@ pub fn show_settings_inner(app: &AppHandle) -> tauri::Result<()> {
     Ok(())
 }
 
-/// Show + focus the History window. Like settings, it's a normal window so the
-/// accessory app must briefly become Regular to bring it to front.
-pub fn show_history_inner(app: &AppHandle) -> tauri::Result<()> {
-    #[cfg(target_os = "macos")]
-    let _ = app.set_activation_policy(tauri::ActivationPolicy::Regular);
-
-    if let Some(win) = app.get_webview_window("history") {
-        let _ = win.unminimize();
-        win.show()?;
-        win.set_focus()?;
-    }
-    Ok(())
-}
-
-#[tauri::command]
-pub fn show_history(app: AppHandle) -> Result<(), String> {
-    show_history_inner(&app).map_err(|e| e.to_string())
-}
-
 /// Show + focus the popup. The hotkey pipeline (phase 03) calls this only AFTER
 /// capturing the selection, so the synthetic Cmd+C targets the frontmost app.
 pub fn show_popup_inner(app: &AppHandle) -> tauri::Result<()> {

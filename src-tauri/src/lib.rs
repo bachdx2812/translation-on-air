@@ -1,7 +1,6 @@
 mod accessibility;
 mod capture;
 mod commands;
-mod history;
 mod hotkey;
 mod keychain;
 mod providers;
@@ -53,10 +52,6 @@ pub fn run() {
             commands::translate_reply,
             selection::bubble_translate,
             selection::hide_bubble,
-            history::history_get,
-            history::history_save,
-            history::history_clear,
-            windows::show_history,
             settings::get_settings,
             settings::set_settings,
             settings::set_hotkey,
@@ -65,12 +60,12 @@ pub fn run() {
             // Hide popup/settings on close instead of destroying them, so the
             // webviews stay warm and re-show instantly (no cold start on hotkey).
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                if matches!(window.label(), "settings" | "popup" | "history") {
+                if matches!(window.label(), "settings" | "popup") {
                     api.prevent_close();
                     let _ = window.hide();
-                    // Closing a normal window → go back to no-dock accessory mode.
+                    // Closing settings → go back to no-dock accessory mode.
                     #[cfg(target_os = "macos")]
-                    if matches!(window.label(), "settings" | "history") {
+                    if window.label() == "settings" {
                         let _ = window
                             .app_handle()
                             .set_activation_policy(tauri::ActivationPolicy::Accessory);

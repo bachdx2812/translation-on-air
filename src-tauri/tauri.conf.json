@@ -39,17 +39,6 @@
         "alwaysOnTop": true
       },
       {
-        "label": "history",
-        "url": "index.html#/history",
-        "visible": false,
-        "title": "Translation History",
-        "width": 520,
-        "height": 600,
-        "minWidth": 420,
-        "minHeight": 360,
-        "center": true
-      },
-      {
         "label": "bubble",
         "url": "index.html#/bubble",
         "visible": false,

@@ -3,18 +3,16 @@ import { listen } from "@tauri-apps/api/event";
 import {
   getSettings,
   hidePopup,
-  historySave,
   openAccessibilitySettings,
   requestAccessibility,
   resizePopup,
-  showHistory,
   showSettings,
   translateReply,
   type CaptureDonePayload,
   type CaptureErrorCode,
   type CaptureErrorPayload,
 } from "../shared/tauri-api";
-import type { Conversation, HistoryTurn, Segment, TargetLang } from "../shared/types";
+import type { Segment, TargetLang } from "../shared/types";
 import { useTranslation } from "./use-translation";
 import { FuriganaText } from "./furigana-text";
 import { LangSwitcher } from "./lang-switcher";
@@ -53,8 +51,6 @@ export function PopupView() {
   const { state, run } = useTranslation();
   const [replies, setReplies] = useState<ReplyTurn[]>([]);
   const [replyOpen, setReplyOpen] = useState(false);
-  // Stable id/timestamp for the current conversation; reset on each capture.
-  const convRef = useRef<{ id: string; createdAt: number } | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
 
   // Keep latest target lang in a ref so the (subscribe-once) capture listener
@@ -91,7 +87,6 @@ export function PopupView() {
           // New capture → start a fresh conversation thread.
           setReplies([]);
           setReplyOpen(false);
-          convRef.current = { id: crypto.randomUUID(), createdAt: Date.now() };
           let lang = targetLangRef.current;
           try {
             lang = (await getSettings()).target_lang;
@@ -110,26 +105,6 @@ export function PopupView() {
     })();
     return () => unlistens.forEach((u) => u());
   }, [run]);
-
-  // Persist the conversation locally whenever the incoming result or replies
-  // change (upsert by id, so language switches update the same entry).
-  useEffect(() => {
-    const conv = convRef.current;
-    if (state.status !== "result" || !conv) return;
-    const turns: HistoryTurn[] = [
-      { kind: "incoming", input: source, output: state.result.translation, at: conv.createdAt },
-      ...replies
-        .filter((r) => r.status === "done")
-        .map((r): HistoryTurn => ({ kind: "reply", input: r.input, output: r.output, at: conv.createdAt })),
-    ];
-    const conversation: Conversation = {
-      id: conv.id,
-      created_at: conv.createdAt,
-      target_lang: targetLang,
-      turns,
-    };
-    void historySave(conversation).catch(() => {});
-  }, [state, replies, source, targetLang]);
 
   // Auto-size the window to the inner content + card padding, so the card fills
   // the window exactly (no window backing showing as a faint layer behind it).
@@ -260,14 +235,6 @@ function ReplyTurnView({ turn }: { turn: ReplyTurn }) {
 function HeaderActions() {
   return (
     <div className="header-actions">
-      <button
-        className="icon-btn"
-        onClick={() => void showHistory()}
-        title="History"
-        aria-label="History"
-      >
-        🕘
-      </button>
       <button
         className="icon-btn"
         onClick={() => void showSettings()}
