@@ -1,29 +1,31 @@
+/* The card FILLS the transparent window (Rust resizes the window to the content
+   height), so there's no window backing showing as a faint layer around it —
+   only the 4 rounded corners are transparent. Opaque, NO backdrop-filter
+   (WebKit's blur ignores border-radius and leaks a square) and NO box-shadow
+   (it would be clipped by the window anyway; the window itself has shadow:false
+   to avoid square corners). */
 .popup {
-  position: relative;
-  /* The card sizes to its content; Rust resizes the (transparent) window to
-     match. Opaque-enough background so nothing behind bleeds through and the
-     source/translation can never visually run together. */
-  min-height: 120px;
-  max-height: 100vh;
-  overflow-y: auto;
   box-sizing: border-box;
+  min-height: 100vh;
   padding: 16px 18px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
   border-radius: 16px;
-  /* Opaque card, NO backdrop-filter: WebKit's backdrop blur ignores
-     border-radius and leaks a square behind the rounded card. */
   background: light-dark(#f6f6f8, #1f1f22);
-  border: 0.5px solid light-dark(rgba(0, 0, 0, 0.16), rgba(255, 255, 255, 0.16));
-  box-shadow: 0 16px 44px rgba(0, 0, 0, 0.3);
+  border: 0.5px solid light-dark(rgba(0, 0, 0, 0.14), rgba(255, 255, 255, 0.14));
   color: light-dark(#1c1c1e, #f2f2f7);
   font-size: 15px;
 }
+.popup-body {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-height: calc(100vh - 28px);
+  overflow-y: auto;
+}
 /* Never let the column shrink its children: if the window is shorter than the
-   content, the card scrolls — children keep full height and the source/
+   content, the body scrolls — children keep full height and the source/
    translation can never overflow into each other. */
-.popup > * {
+.popup-body > * {
   flex-shrink: 0;
 }
 

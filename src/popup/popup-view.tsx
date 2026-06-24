@@ -89,12 +89,15 @@ export function PopupView() {
     return () => unlistens.forEach((u) => u());
   }, [run]);
 
-  // Auto-size the window to fit content (no internal scroll until very tall).
+  // Auto-size the window to the inner content + card padding, so the card fills
+  // the window exactly (no window backing showing as a faint layer behind it).
+  // Measuring the content wrapper (not the 100vh card) avoids a feedback loop.
   useLayoutEffect(() => {
     const el = rootRef.current;
     if (!el) return;
+    const CARD_PADDING = 28; // .popup top+bottom padding (16 + 12)
     const maxH = Math.floor(window.screen.availHeight * 0.85);
-    const height = Math.max(150, Math.min(Math.ceil(el.scrollHeight), maxH));
+    const height = Math.max(120, Math.min(Math.ceil(el.scrollHeight) + CARD_PADDING, maxH));
     void resizePopup(POPUP_WIDTH, height);
   }, [state, source, captureError, targetLang]);
 
@@ -106,41 +109,45 @@ export function PopupView() {
   const sourceSegments = state.status === "result" ? state.result.source_segments : [];
 
   return (
-    <div className="popup" ref={rootRef}>
-      {captureError ? (
-        <>
-          <header className="popup-header">
-            <span className="brand">Translate On Air</span>
-            <GearButton />
-          </header>
-          <CaptureErrorView code={captureError} />
-        </>
-      ) : (
-        <>
-          <header className="popup-header">
-            <LangSwitcher value={targetLang} onChange={onLangChange} />
-            <GearButton />
-          </header>
+    // .popup fills the window (opaque rounded card); .popup-body holds the
+    // measured content.
+    <div className="popup">
+      <div className="popup-body" ref={rootRef}>
+        {captureError ? (
+          <>
+            <header className="popup-header">
+              <span className="brand">Translate On Air</span>
+              <GearButton />
+            </header>
+            <CaptureErrorView code={captureError} />
+          </>
+        ) : (
+          <>
+            <header className="popup-header">
+              <LangSwitcher value={targetLang} onChange={onLangChange} />
+              <GearButton />
+            </header>
 
-          {/* Translation first — the primary content the user reached for. */}
-          <section className="panel translation-panel">
-            <TranslationBody state={state} onRetry={() => source && run(source, targetLang)} />
-          </section>
+            {/* Translation first — the primary content the user reached for. */}
+            <section className="panel translation-panel">
+              <TranslationBody state={state} onRetry={() => source && run(source, targetLang)} />
+            </section>
 
-          <div className="divider" />
+            <div className="divider" />
 
-          {/* Source below, muted, no label (it reads as the original on its own). */}
-          <section className="panel source-panel">
-            {sourceSegments.length > 0 ? (
-              <FuriganaText segments={sourceSegments} />
-            ) : (
-              <p className="src-text">{source || "…"}</p>
-            )}
-          </section>
-        </>
-      )}
+            {/* Source below, muted, no label (it reads as the original on its own). */}
+            <section className="panel source-panel">
+              {sourceSegments.length > 0 ? (
+                <FuriganaText segments={sourceSegments} />
+              ) : (
+                <p className="src-text">{source || "…"}</p>
+              )}
+            </section>
+          </>
+        )}
 
-      <p className="esc-hint">ESC</p>
+        <p className="esc-hint">ESC</p>
+      </div>
     </div>
   );
 }

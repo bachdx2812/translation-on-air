@@ -117,12 +117,14 @@ fn on_mouse_up(app: &AppHandle) {
         return;
     }
 
+    // Snapshot the cursor AT mouse-up: the async Cmd+C path runs hundreds of ms
+    // later, by which point the pointer has moved — so the bubble must be placed
+    // using this position, not a fresh read.
+    let up = app.cursor_position().ok().map(|p| (p.x, p.y));
+
     // Did the pointer travel far enough to be a drag-select (vs a plain click)?
-    let dragged = match (
-        LAST_DOWN.lock().ok().and_then(|g| *g),
-        app.cursor_position().ok(),
-    ) {
-        (Some((dx, dy)), Some(p)) => ((p.x - dx).powi(2) + (p.y - dy).powi(2)).sqrt() > 6.0,
+    let dragged = match (LAST_DOWN.lock().ok().and_then(|g| *g), up) {
+        (Some((dx, dy)), Some((ux, uy))) => ((ux - dx).powi(2) + (uy - dy).powi(2)).sqrt() > 6.0,
         _ => false,
     };
 
@@ -134,7 +136,7 @@ fn on_mouse_up(app: &AppHandle) {
     );
     if let Some(t) = ax {
         if !t.trim().is_empty() {
-            show_bubble(app, t);
+            show_bubble(app, t, up);
             return;
         }
     }
@@ -148,7 +150,7 @@ fn on_mouse_up(app: &AppHandle) {
             match crate::capture::capture_selection(&app).await {
                 Ok(t) if !t.trim().is_empty() => {
                     let app2 = app.clone();
-                    let _ = app.run_on_main_thread(move || show_bubble(&app2, t));
+                    let _ = app.run_on_main_thread(move || show_bubble(&app2, t, up));
                 }
                 _ => {
                     let app2 = app.clone();
@@ -170,41 +172,40 @@ fn hide_bubble_window(app: &AppHandle) {
     }
 }
 
-/// Store the selection and show the bubble at the cursor. Must run on the main
+/// Store the selection and show the bubble next to the drag-release point
+/// (`at`, physical global coords captured at mouse-up). Must run on the main
 /// thread (callers ensure this).
 #[cfg(target_os = "macos")]
-fn show_bubble(app: &AppHandle, text: String) {
+fn show_bubble(app: &AppHandle, text: String, at: Option<(f64, f64)>) {
     if let Ok(mut g) = SELECTED.lock() {
         *g = text;
     }
-    // Tauri's cursor_position already lives in the global top-left coordinate
-    // space set_position expects — no manual Cocoa flip (which broke on
-    // multi-monitor setups). Physical pixels; place the bubble just above-left.
-    let pos = match app.cursor_position() {
-        Ok(p) => p,
-        Err(e) => {
-            eprintln!("[bubble] no cursor position: {e}");
-            return;
-        }
+    let Some((cx, cy)) = at.or_else(|| app.cursor_position().ok().map(|p| (p.x, p.y))) else {
+        eprintln!("[bubble] no cursor position");
+        return;
     };
-    let x = (pos.x - 12.0).max(0.0);
-    let y = (pos.y - 64.0).max(0.0);
     let _ = (BUBBLE_W, BUBBLE_H);
 
-    match app.get_webview_window("bubble") {
-        Some(win) => {
-            let _ = win.set_position(PhysicalPosition::new(x, y));
-            let _ = win.set_always_on_top(true);
-            // show() only (no set_focus): an Accessory app ordering a window front
-            // does not steal first-responder from the host app.
-            let _ = win.show();
-            eprintln!(
-                "[bubble] shown at physical ({x:.0}, {y:.0}) visible={:?}",
-                win.is_visible()
-            );
-        }
-        None => eprintln!("[bubble] ERROR: no 'bubble' window"),
-    }
+    let Some(win) = app.get_webview_window("bubble") else {
+        eprintln!("[bubble] ERROR: no 'bubble' window");
+        return;
+    };
+
+    // Scale the offset to the cursor's monitor so the bubble sits the same small
+    // gap below-right of the release point on Retina and non-Retina alike.
+    let scale = win.scale_factor().unwrap_or(1.0);
+    let x = (cx + 8.0 * scale).max(0.0);
+    let y = (cy + 12.0 * scale).max(0.0);
+
+    let _ = win.set_position(PhysicalPosition::new(x, y));
+    let _ = win.set_always_on_top(true);
+    // show() only (no set_focus): an Accessory app ordering a window front does
+    // not steal first-responder from the host app.
+    let _ = win.show();
+    eprintln!(
+        "[bubble] shown at physical ({x:.0}, {y:.0}) visible={:?}",
+        win.is_visible()
+    );
 }
 
 /// Install the global mouse-up monitor. Must run on the main thread (setup does).
