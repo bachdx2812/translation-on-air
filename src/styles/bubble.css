@@ -1,0 +1,39 @@
+/* The bubble window is tiny (104×40) and transparent; center the pill in it. */
+#root {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.bubble-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 16px;
+  border: 0.5px solid light-dark(rgba(0, 0, 0, 0.16), rgba(255, 255, 255, 0.18));
+  background: light-dark(rgba(252, 252, 253, 0.92), rgba(40, 40, 44, 0.92));
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  color: light-dark(#1c1c1e, #f2f2f7);
+  font-size: 0.85rem;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.26);
+  transition: transform 0.08s ease, box-shadow 0.12s ease;
+}
+.bubble-btn:hover {
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.32);
+}
+.bubble-btn:active {
+  transform: scale(0.96);
+}
+.bubble-glyph {
+  font-size: 0.95rem;
+}

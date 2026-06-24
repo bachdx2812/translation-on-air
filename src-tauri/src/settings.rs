@@ -14,11 +14,13 @@ const K_HOTKEY: &str = "hotkey";
 const K_TARGET_LANG: &str = "target_lang";
 const K_PROVIDER_MODE: &str = "provider_mode";
 const K_MODEL: &str = "openai_model";
+const K_SELECTION_BUBBLE: &str = "selection_bubble";
 
 pub const DEFAULT_HOTKEY: &str = "Cmd+Shift+T";
 const DEFAULT_TARGET_LANG: &str = "vi";
 const DEFAULT_PROVIDER_MODE: &str = "auto";
 const DEFAULT_MODEL: &str = "gpt-4o-mini";
+const DEFAULT_SELECTION_BUBBLE: bool = true;
 
 fn read_string(app: &AppHandle, key: &str, default: &str) -> String {
     app.store(STORE_FILE)
@@ -40,6 +42,13 @@ pub fn provider_mode(app: &AppHandle) -> String {
 pub fn model(app: &AppHandle) -> String {
     read_string(app, K_MODEL, DEFAULT_MODEL)
 }
+pub fn selection_bubble(app: &AppHandle) -> bool {
+    app.store(STORE_FILE)
+        .ok()
+        .and_then(|s| s.get(K_SELECTION_BUBBLE))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(DEFAULT_SELECTION_BUBBLE)
+}
 
 /// Full settings for the settings window. `has_openai_key` is derived from the
 /// Keychain; the key value itself is never included.
@@ -50,6 +59,7 @@ pub struct Settings {
     provider_mode: String,
     openai_model: String,
     has_openai_key: bool,
+    selection_bubble: bool,
 }
 
 /// Partial update from the settings UI (hotkey is handled by `set_hotkey`).
@@ -58,6 +68,7 @@ pub struct SettingsPatch {
     target_lang: Option<String>,
     provider_mode: Option<String>,
     openai_model: Option<String>,
+    selection_bubble: Option<bool>,
 }
 
 #[tauri::command]
@@ -68,6 +79,7 @@ pub fn get_settings(app: AppHandle) -> Settings {
         provider_mode: provider_mode(&app),
         openai_model: model(&app),
         has_openai_key: crate::keychain::has_key(),
+        selection_bubble: selection_bubble(&app),
     }
 }
 
@@ -89,6 +101,10 @@ pub fn set_settings(
     if let Some(v) = patch.openai_model {
         store.set(K_MODEL, json!(v));
         provider_affecting = true;
+    }
+    if let Some(v) = patch.selection_bubble {
+        store.set(K_SELECTION_BUBBLE, json!(v));
+        crate::selection::set_enabled(v);
     }
     store.save().map_err(|e| e.to_string())?;
     if provider_affecting {

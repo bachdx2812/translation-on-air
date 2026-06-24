@@ -35,10 +35,12 @@ export type Settings = {
   provider_mode: ProviderMode;
   openai_model: string;
   has_openai_key: boolean;
+  selection_bubble: boolean;
 };
 
 export type SettingsPatch = Partial<{
   target_lang: TargetLang;
   provider_mode: ProviderMode;
   openai_model: string;
+  selection_bubble: boolean;
 }>;

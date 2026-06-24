@@ -48,6 +48,31 @@ select:focus {
   border-color: transparent;
 }
 
+/* Checkbox row: opt out of the uppercase section-label styling. */
+.setting-section > label.setting-check {
+  flex-direction: row;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-transform: none;
+  letter-spacing: normal;
+  font-size: 0.9rem;
+  font-weight: 400;
+  color: inherit;
+  cursor: pointer;
+}
+.setting-check input[type="checkbox"] {
+  width: auto;
+  padding: 0;
+  margin: 0;
+}
+.setting-hint {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: light-dark(#8e8e93, #98989d);
+}
+
 button {
   font: inherit;
   padding: 7px 14px;

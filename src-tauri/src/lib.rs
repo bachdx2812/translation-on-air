@@ -4,6 +4,7 @@ mod commands;
 mod hotkey;
 mod keychain;
 mod providers;
+mod selection;
 #[cfg(target_os = "macos")]
 mod services;
 mod settings;
@@ -48,6 +49,8 @@ pub fn run() {
             commands::delete_openai_key,
             commands::has_openai_key,
             commands::copy_text,
+            selection::bubble_translate,
+            selection::hide_bubble,
             settings::get_settings,
             settings::set_settings,
             settings::set_hotkey,
@@ -80,6 +83,10 @@ pub fn run() {
             // Right-click → Services → Translate (Info.plist NSServices entry).
             #[cfg(target_os = "macos")]
             services::register(app.handle());
+            // Selection bubble: install the global mouse-up monitor, gated by the
+            // persisted setting (default on).
+            selection::set_enabled(settings::selection_bubble(app.handle()));
+            selection::register(app.handle());
             Ok(())
         })
         .run(tauri::generate_context!())

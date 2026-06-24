@@ -34,6 +34,20 @@
         "height": 420,
         "center": true,
         "alwaysOnTop": true
+      },
+      {
+        "label": "bubble",
+        "url": "index.html#/bubble",
+        "visible": false,
+        "decorations": false,
+        "transparent": true,
+        "shadow": false,
+        "alwaysOnTop": true,
+        "resizable": false,
+        "skipTaskbar": true,
+        "focus": false,
+        "width": 104,
+        "height": 40
       }
     ],
     "security": {

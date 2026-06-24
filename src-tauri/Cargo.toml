@@ -35,5 +35,17 @@ keyring = { version = "3", features = ["apple-native"] }
 # Services provider (right-click → Translate): define an ObjC class and hand the
 # pasteboard selection to the translate pipeline. Same versions tauri already pulls.
 objc2 = "0.6"
-objc2-foundation = { version = "0.3", features = ["NSString"] }
-objc2-app-kit = { version = "0.3", features = ["NSApplication", "NSPasteboard", "NSResponder"] }
+objc2-foundation = { version = "0.3", features = ["NSString", "NSGeometry"] }
+objc2-app-kit = { version = "0.3", features = [
+    "NSApplication",
+    "NSPasteboard",
+    "NSResponder",
+    "NSEvent",
+    "NSScreen",
+] }
+# Selection bubble: block for the global mouse-up monitor (block2), and the
+# Accessibility API to read the focused element's selected text passively
+# (no clipboard disturbance, unlike the hotkey path's synthetic Cmd+C).
+block2 = "0.6"
+accessibility-sys = "0.1"
+core-foundation = "0.10"
