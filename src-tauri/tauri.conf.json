@@ -32,7 +32,9 @@
         "visible": false,
         "title": "Settings",
         "width": 480,
-        "height": 420,
+        "height": 560,
+        "minWidth": 420,
+        "minHeight": 360,
         "center": true,
         "alwaysOnTop": true
       },
