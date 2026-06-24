@@ -7,15 +7,17 @@ import {
   requestAccessibility,
   resizePopup,
   showSettings,
+  translateReply,
   type CaptureDonePayload,
   type CaptureErrorCode,
   type CaptureErrorPayload,
 } from "../shared/tauri-api";
-import type { TargetLang } from "../shared/types";
+import type { Segment, TargetLang } from "../shared/types";
 import { useTranslation } from "./use-translation";
 import { FuriganaText } from "./furigana-text";
 import { LangSwitcher } from "./lang-switcher";
 import { ResultActions } from "./result-actions";
+import { ReplyBox } from "./reply-box";
 import "../styles/popup.css";
 
 // phase 06 loads the persisted default; until then Vietnamese (the product default).
@@ -32,11 +34,23 @@ const ERROR_MESSAGES: Record<string, string> = {
   timeout: "Translation timed out.",
 };
 
+/** A reply turn: the user's reply (in the target lang) translated back into the
+ * source language. */
+type ReplyTurn = {
+  input: string;
+  status: "loading" | "done" | "error";
+  output: string;
+  segments: Segment[];
+  code?: string;
+};
+
 export function PopupView() {
   const [source, setSource] = useState("");
   const [targetLang, setTargetLang] = useState<TargetLang>(DEFAULT_LANG);
   const [captureError, setCaptureError] = useState<CaptureErrorCode | null>(null);
   const { state, run } = useTranslation();
+  const [replies, setReplies] = useState<ReplyTurn[]>([]);
+  const [replyOpen, setReplyOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
   // Keep latest target lang in a ref so the (subscribe-once) capture listener
@@ -70,6 +84,9 @@ export function PopupView() {
         await listen<CaptureDonePayload>("capture-done", async (e) => {
           setCaptureError(null);
           setSource(e.payload.text);
+          // New capture → start a fresh conversation thread.
+          setReplies([]);
+          setReplyOpen(false);
           let lang = targetLangRef.current;
           try {
             lang = (await getSettings()).target_lang;
@@ -99,11 +116,32 @@ export function PopupView() {
     const maxH = Math.floor(window.screen.availHeight * 0.85);
     const height = Math.max(120, Math.min(Math.ceil(el.scrollHeight) + CARD_PADDING, maxH));
     void resizePopup(POPUP_WIDTH, height);
-  }, [state, source, captureError, targetLang]);
+  }, [state, source, captureError, targetLang, replies, replyOpen]);
 
   const onLangChange = (lang: TargetLang) => {
     setTargetLang(lang);
     if (source) void run(source, lang);
+  };
+
+  const onReply = async (text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed || state.status !== "result") return;
+    const original = state.result.translation;
+    const idx = replies.length;
+    setReplies((rs) => [...rs, { input: trimmed, status: "loading", output: "", segments: [] }]);
+    setReplyOpen(false);
+    try {
+      const res = await translateReply(trimmed, source, original, targetLang);
+      setReplies((rs) =>
+        rs.map((r, i) =>
+          i === idx ? { ...r, status: "done", output: res.translation, segments: res.segments } : r,
+        ),
+      );
+    } catch (e) {
+      setReplies((rs) =>
+        rs.map((r, i) => (i === idx ? { ...r, status: "error", code: String(e) } : r)),
+      );
+    }
   };
 
   const sourceSegments = state.status === "result" ? state.result.source_segments : [];
@@ -117,7 +155,7 @@ export function PopupView() {
           <>
             <header className="popup-header">
               <span className="brand">Translate On Air</span>
-              <GearButton />
+              <HeaderActions />
             </header>
             <CaptureErrorView code={captureError} />
           </>
@@ -125,7 +163,7 @@ export function PopupView() {
           <>
             <header className="popup-header">
               <LangSwitcher value={targetLang} onChange={onLangChange} />
-              <GearButton />
+              <HeaderActions />
             </header>
 
             {/* Translation first — the primary content the user reached for. */}
@@ -143,25 +181,77 @@ export function PopupView() {
                 <p className="src-text">{source || "…"}</p>
               )}
             </section>
+
+            {/* Reply thread: each reply translated back into the source language. */}
+            {replies.map((r, i) => (
+              <ReplyTurnView key={i} turn={r} />
+            ))}
+
+            {/* Reply control: only once there's a translation to reply to. */}
+            {state.status === "result" &&
+              (replyOpen ? (
+                <ReplyBox
+                  lang={targetLang}
+                  onSend={(t) => void onReply(t)}
+                  onCancel={() => setReplyOpen(false)}
+                />
+              ) : (
+                <button className="reply-btn" onClick={() => setReplyOpen(true)}>
+                  ↩ Reply
+                </button>
+              ))}
           </>
         )}
-
-        <p className="esc-hint">ESC</p>
       </div>
     </div>
   );
 }
 
-function GearButton() {
+/** A single reply turn: translated reply (source language) over the reply text. */
+function ReplyTurnView({ turn }: { turn: ReplyTurn }) {
   return (
-    <button
-      className="gear"
-      onClick={() => void showSettings()}
-      title="Settings"
-      aria-label="Settings"
-    >
-      ⚙
-    </button>
+    <div className="reply-turn">
+      <div className="divider" />
+      {turn.status === "loading" ? (
+        <p className="loading">Translating…</p>
+      ) : turn.status === "error" ? (
+        <p className="error">{ERROR_MESSAGES[turn.code ?? ""] ?? "Reply translation failed."}</p>
+      ) : (
+        <div className="result">
+          {turn.segments.length > 0 ? (
+            <FuriganaText segments={turn.segments} />
+          ) : (
+            <p className="translation">{turn.output}</p>
+          )}
+          <ResultActions text={turn.output} />
+        </div>
+      )}
+      <p className="src-text reply-in">↳ {turn.input}</p>
+    </div>
+  );
+}
+
+/** History + settings + close buttons, top-right of the popup. ESC also closes. */
+function HeaderActions() {
+  return (
+    <div className="header-actions">
+      <button
+        className="icon-btn"
+        onClick={() => void showSettings()}
+        title="Settings"
+        aria-label="Settings"
+      >
+        ⚙
+      </button>
+      <button
+        className="icon-btn"
+        onClick={() => void hidePopup()}
+        title="Close"
+        aria-label="Close"
+      >
+        ✕
+      </button>
+    </div>
   );
 }
 

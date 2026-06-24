@@ -36,6 +36,15 @@ export const setSettings = (patch: SettingsPatch): Promise<void> =>
   invoke("set_settings", { patch });
 export const setHotkey = (accel: string): Promise<void> => invoke("set_hotkey", { accel });
 
+// --- Reply (translate a reply back into the source language, with context) ---
+export const translateReply = (
+  reply: string,
+  originalSource: string,
+  originalTranslation: string,
+  replyLang: TargetLang,
+): Promise<Translated> =>
+  invoke("translate_reply", { reply, originalSource, originalTranslation, replyLang });
+
 // --- Events emitted by the capture pipeline to the popup window ---
 export type CaptureDonePayload = { text: string };
 export type CaptureErrorCode = "no-selection" | "ax-missing" | "capture-failed";

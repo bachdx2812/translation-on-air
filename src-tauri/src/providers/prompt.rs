@@ -63,3 +63,30 @@ otherwise []. {rules}",
         rules = RULES
     )
 }
+
+/// Build the system prompt for translating a REPLY back into the original
+/// message's language, using the prior exchange as context so the wording stays
+/// consistent. The model infers the original language from `original_source`, so
+/// no explicit source-language code is needed. `reply_lang` is the language the
+/// user typed the reply in (the translation language). The user message is the
+/// reply text itself.
+pub fn reply_prompt(original_source: &str, original_translation: &str, reply_lang: &str) -> String {
+    let reply_lang_name = match reply_lang {
+        "ja" => "Japanese",
+        "en" => "English",
+        _ => "Vietnamese",
+    };
+    format!(
+        "You are a translation engine in an ongoing bilingual conversation. The other party wrote this \
+ORIGINAL message:\n\"{src}\"\nwhich was translated for the user as:\n\"{tr}\"\nThe user now writes a \
+REPLY in {reply_lang}. Translate the reply into the SAME LANGUAGE as the ORIGINAL message (so the \
+other party can read it), keeping terminology and tone consistent with the conversation. Return ONLY \
+JSON matching the schema (no markdown fences). 'translation' = the reply rewritten in the original \
+message's language. If that language is Japanese, 'segments' = furigana tokens of 'translation', \
+otherwise []. 'source_segments' = []. {rules}",
+        src = original_source,
+        tr = original_translation,
+        reply_lang = reply_lang_name,
+        rules = RULES
+    )
+}

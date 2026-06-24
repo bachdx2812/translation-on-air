@@ -68,12 +68,13 @@ fn check_json_schema_support(path: &PathBuf) -> bool {
         .unwrap_or(false)
 }
 
+/// Translate `text` using a caller-built system prompt (shared by plain
+/// translation and contextual replies).
 pub async fn translate(
     info: &ClaudeInfo,
+    sys: &str,
     text: &str,
-    target_lang: &str,
 ) -> Result<Translated, ProviderError> {
-    let sys = prompt::system_prompt(target_lang);
     let mut cmd = Command::new(&info.path);
     cmd.args([
         "-p",
@@ -82,7 +83,7 @@ pub async fn translate(
         "--model",
         "haiku",
         "--system-prompt",
-        &sys,
+        sys,
     ]);
     if info.supports_json_schema {
         cmd.args(["--json-schema", prompt::FURIGANA_SCHEMA]);

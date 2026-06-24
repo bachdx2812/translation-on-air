@@ -29,16 +29,8 @@ pub async fn translate(
 
     let provider = providers::resolve(mode, claude, has_key).map_err(|e| e.code().to_string())?;
 
-    let result = match provider {
-        providers::Provider::OpenAi => {
-            let key = keychain::get_key().ok_or_else(|| "not-configured".to_string())?;
-            providers::openai::translate(&key, &model, &text, &target_lang).await
-        }
-        providers::Provider::ClaudeCli(info) => {
-            providers::claude_cli::translate(&info, &text, &target_lang).await
-        }
-    }
-    .map_err(|e| e.code().to_string())?;
+    let sys = providers::prompt::system_prompt(&target_lang);
+    let result = run_provider(provider, &model, &sys, &text).await?;
 
     // Output furigana only when translating INTO Japanese.
     let segments = if target_lang == "ja" {
@@ -58,6 +50,68 @@ pub async fn translate(
         segments,
         source_segments,
     })
+}
+
+/// Translate a reply back into the ORIGINAL message's language, using the prior
+/// exchange as context. The output language is inferred from `original_source`,
+/// so furigana is produced when that original was Japanese.
+#[tauri::command]
+pub async fn translate_reply(
+    app: tauri::AppHandle,
+    cache: State<'_, providers::ProviderCache>,
+    reply: String,
+    original_source: String,
+    original_translation: String,
+    reply_lang: String,
+) -> Result<Translated, String> {
+    let reply = reply.trim().to_string();
+    let mode = ProviderMode::from_str(&settings::provider_mode(&app));
+    let model = settings::model(&app);
+    let claude = cache.claude_info();
+    let has_key = keychain::has_key();
+
+    let provider = providers::resolve(mode, claude, has_key).map_err(|e| e.code().to_string())?;
+
+    let sys = providers::prompt::reply_prompt(&original_source, &original_translation, &reply_lang);
+    let result = run_provider(provider, &model, &sys, &reply).await?;
+
+    // The reply's OUTPUT is in the original message's language → furigana when
+    // that original was Japanese.
+    let segments = if providers::furigana::contains_japanese(&original_source) {
+        providers::furigana::validate_segments(&result.translation, result.segments)
+    } else {
+        Vec::new()
+    };
+    let source_segments = if providers::furigana::contains_japanese(&reply) {
+        providers::furigana::validate_segments(&reply, result.source_segments)
+    } else {
+        Vec::new()
+    };
+
+    Ok(Translated {
+        translation: result.translation,
+        segments,
+        source_segments,
+    })
+}
+
+/// Dispatch a request to the resolved provider with a caller-built system prompt.
+async fn run_provider(
+    provider: providers::Provider,
+    model: &str,
+    sys: &str,
+    text: &str,
+) -> Result<Translated, String> {
+    match provider {
+        providers::Provider::OpenAi => {
+            let key = keychain::get_key().ok_or_else(|| "not-configured".to_string())?;
+            providers::openai::translate(&key, model, sys, text).await
+        }
+        providers::Provider::ClaudeCli(info) => {
+            providers::claude_cli::translate(&info, sys, text).await
+        }
+    }
+    .map_err(|e| e.code().to_string())
 }
 
 #[tauri::command]

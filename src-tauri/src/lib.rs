@@ -49,6 +49,7 @@ pub fn run() {
             commands::delete_openai_key,
             commands::has_openai_key,
             commands::copy_text,
+            commands::translate_reply,
             selection::bubble_translate,
             selection::hide_bubble,
             settings::get_settings,
