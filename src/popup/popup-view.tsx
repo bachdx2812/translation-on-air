@@ -20,7 +20,7 @@ import "../styles/popup.css";
 
 // phase 06 loads the persisted default; until then Vietnamese (the product default).
 const DEFAULT_LANG: TargetLang = "vi";
-const POPUP_WIDTH = 680;
+const POPUP_WIDTH = 440;
 
 const ERROR_MESSAGES: Record<string, string> = {
   "not-configured": "No provider configured — add an OpenAI key in Settings (or sign in to Claude).",
@@ -107,39 +107,54 @@ export function PopupView() {
 
   return (
     <div className="popup" ref={rootRef}>
-      <button
-        className="gear"
-        onClick={() => void showSettings()}
-        title="Settings"
-        aria-label="Settings"
-      >
-        ⚙
-      </button>
-
       {captureError ? (
-        <CaptureErrorView code={captureError} />
+        <>
+          <header className="popup-header">
+            <span className="brand">Translate On Air</span>
+            <GearButton />
+          </header>
+          <CaptureErrorView code={captureError} />
+        </>
       ) : (
         <>
-          <LangSwitcher value={targetLang} onChange={onLangChange} />
-          <div className="panels">
-            <section className="panel">
-              <span className="panel-label">Gốc</span>
-              {sourceSegments.length > 0 ? (
-                <FuriganaText segments={sourceSegments} />
-              ) : (
-                <p className="src-text">{source || "…"}</p>
-              )}
-            </section>
-            <section className="panel">
-              <span className="panel-label">Bản dịch</span>
-              <TranslationBody state={state} onRetry={() => source && run(source, targetLang)} />
-            </section>
-          </div>
+          <header className="popup-header">
+            <LangSwitcher value={targetLang} onChange={onLangChange} />
+            <GearButton />
+          </header>
+
+          {/* Translation first — the primary content the user reached for. */}
+          <section className="panel translation-panel">
+            <TranslationBody state={state} onRetry={() => source && run(source, targetLang)} />
+          </section>
+
+          <div className="divider" />
+
+          {/* Source below, muted, no label (it reads as the original on its own). */}
+          <section className="panel source-panel">
+            {sourceSegments.length > 0 ? (
+              <FuriganaText segments={sourceSegments} />
+            ) : (
+              <p className="src-text">{source || "…"}</p>
+            )}
+          </section>
         </>
       )}
 
       <p className="esc-hint">ESC</p>
     </div>
+  );
+}
+
+function GearButton() {
+  return (
+    <button
+      className="gear"
+      onClick={() => void showSettings()}
+      title="Settings"
+      aria-label="Settings"
+    >
+      ⚙
+    </button>
   );
 }
 
