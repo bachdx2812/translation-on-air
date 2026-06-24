@@ -117,7 +117,7 @@ export function PopupView() {
           <>
             <header className="popup-header">
               <span className="brand">Translate On Air</span>
-              <GearButton />
+              <HeaderActions />
             </header>
             <CaptureErrorView code={captureError} />
           </>
@@ -125,7 +125,7 @@ export function PopupView() {
           <>
             <header className="popup-header">
               <LangSwitcher value={targetLang} onChange={onLangChange} />
-              <GearButton />
+              <HeaderActions />
             </header>
 
             {/* Translation first — the primary content the user reached for. */}
@@ -145,23 +145,32 @@ export function PopupView() {
             </section>
           </>
         )}
-
-        <p className="esc-hint">ESC</p>
       </div>
     </div>
   );
 }
 
-function GearButton() {
+/** Settings gear + close button, top-right of the popup. ESC also closes. */
+function HeaderActions() {
   return (
-    <button
-      className="gear"
-      onClick={() => void showSettings()}
-      title="Settings"
-      aria-label="Settings"
-    >
-      ⚙
-    </button>
+    <div className="header-actions">
+      <button
+        className="icon-btn"
+        onClick={() => void showSettings()}
+        title="Settings"
+        aria-label="Settings"
+      >
+        ⚙
+      </button>
+      <button
+        className="icon-btn"
+        onClick={() => void hidePopup()}
+        title="Close"
+        aria-label="Close"
+      >
+        ✕
+      </button>
+    </div>
   );
 }
 
