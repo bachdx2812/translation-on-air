@@ -3,7 +3,7 @@
 
 use super::prompt;
 use super::types::{ProviderError, Translated};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::time::Duration;
 use tokio::io::AsyncWriteExt;
@@ -13,6 +13,10 @@ use tokio::process::Command;
 pub struct ClaudeInfo {
     pub path: PathBuf,
     pub supports_json_schema: bool,
+    /// `--safe-mode` skips the user's CLAUDE.md, hooks, plugins and MCP servers
+    /// but keeps subscription auth (unlike `--bare`), so a translation neither
+    /// pays for that context nor gets hook output mixed into stdout.
+    pub supports_safe_mode: bool,
 }
 
 /// Detect a usable Claude CLI: a known binary path that exists AND subscription
@@ -35,11 +39,40 @@ pub fn detect() -> Option<ClaudeInfo> {
     if !creds_present(home.as_deref()) {
         return None;
     }
-    let supports_json_schema = check_json_schema_support(&path);
+    let help = help_text(&path);
     Some(ClaudeInfo {
+        supports_json_schema: help.contains("--json-schema"),
+        supports_safe_mode: help.contains("--safe-mode"),
         path,
-        supports_json_schema,
     })
+}
+
+/// PATH for the CLI subprocess. GUI apps inherit a minimal PATH, and an npm
+/// install of `claude` is a `#!/usr/bin/env node` script, so the directory it
+/// lives in (where npm, nvm and Homebrew also put `node`) must be searchable.
+fn child_path(cli: &Path, home: Option<&str>) -> String {
+    let mut dirs: Vec<String> = Vec::new();
+    let mut push = |d: String| {
+        if !d.is_empty() && !dirs.contains(&d) {
+            dirs.push(d);
+        }
+    };
+    if let Some(dir) = cli.parent() {
+        push(dir.display().to_string());
+    }
+    push("/opt/homebrew/bin".into());
+    push("/usr/local/bin".into());
+    if let Some(h) = home {
+        push(format!("{h}/.local/bin"));
+    }
+    for d in ["/usr/bin", "/bin", "/usr/sbin", "/sbin"] {
+        push(d.into());
+    }
+    dirs.join(":")
+}
+
+fn home_dir() -> Option<String> {
+    std::env::var("HOME").ok()
 }
 
 /// Subscription creds = `~/.claude/.credentials.json` OR a Keychain item. We only
@@ -59,13 +92,15 @@ fn creds_present(home: Option<&str>) -> bool {
         .unwrap_or(false)
 }
 
-/// Feature-detect the `--json-schema` flag (absent on older CLI versions).
-fn check_json_schema_support(path: &PathBuf) -> bool {
+/// `claude --help`, used to feature-detect flags older CLI versions lack.
+fn help_text(path: &Path) -> String {
     std::process::Command::new(path)
         .arg("--help")
+        .env("PATH", child_path(path, home_dir().as_deref()))
+        .stderr(Stdio::null())
         .output()
-        .map(|o| String::from_utf8_lossy(&o.stdout).contains("--json-schema"))
-        .unwrap_or(false)
+        .map(|o| String::from_utf8_lossy(&o.stdout).into_owned())
+        .unwrap_or_default()
 }
 
 /// Translate `text` using a caller-built system prompt (shared by plain
@@ -88,9 +123,13 @@ pub async fn translate(
     if info.supports_json_schema {
         cmd.args(["--json-schema", prompt::FURIGANA_SCHEMA]);
     }
-    cmd.stdin(Stdio::piped())
+    if info.supports_safe_mode {
+        cmd.arg("--safe-mode");
+    }
+    cmd.env("PATH", child_path(&info.path, home_dir().as_deref()))
+        .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::null())
+        .stderr(Stdio::piped())
         .kill_on_drop(true);
 
     let mut child = cmd.spawn().map_err(|_| ProviderError::Unavailable)?;
@@ -105,13 +144,51 @@ pub async fn translate(
         .map_err(|_| ProviderError::Timeout)?
         .map_err(|_| ProviderError::Unavailable)?;
 
-    parse_envelope(&String::from_utf8_lossy(&output.stdout))
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let result = parse_envelope(&stdout);
+    if result.is_err() {
+        eprintln!(
+            "[claude_cli] {:?} (exit {:?}); stderr: {}",
+            result.as_ref().err(),
+            output.status.code(),
+            String::from_utf8_lossy(&output.stderr).trim()
+        );
+    }
+    result
+}
+
+/// The `"type": "result"` object in the CLI's stdout. Normally stdout is just
+/// that object, but a `verbose` setting turns it into an array of every
+/// message, and hooks or plugins may print extra lines around it.
+fn find_result(stdout: &str) -> Option<serde_json::Value> {
+    fn is_result(v: &serde_json::Value) -> bool {
+        v.get("type").and_then(|t| t.as_str()) == Some("result")
+    }
+    fn pick(v: serde_json::Value) -> Option<serde_json::Value> {
+        match v {
+            serde_json::Value::Array(items) => items.into_iter().rev().find(is_result),
+            v if v.is_object() => Some(v),
+            _ => None,
+        }
+    }
+    if let Ok(v) = serde_json::from_str(stdout.trim()) {
+        return pick(v);
+    }
+    stdout
+        .lines()
+        .rev()
+        .filter_map(|line| serde_json::from_str(line.trim()).ok())
+        .find_map(|v| pick(v).filter(is_result))
 }
 
 /// Parse the `claude -p --output-format json` envelope into a Translated.
 fn parse_envelope(stdout: &str) -> Result<Translated, ProviderError> {
-    let v: serde_json::Value =
-        serde_json::from_str(stdout.trim()).map_err(|_| ProviderError::BadResponse)?;
+    if stdout.trim().is_empty() {
+        // The CLI died before answering (e.g. `node` not found for an npm
+        // install): the service is unavailable, not the answer unreadable.
+        return Err(ProviderError::Unavailable);
+    }
+    let v = find_result(stdout).ok_or(ProviderError::BadResponse)?;
 
     if v.get("is_error").and_then(|b| b.as_bool()).unwrap_or(false) {
         let msg = v.get("result").and_then(|r| r.as_str()).unwrap_or("");
@@ -138,14 +215,18 @@ fn parse_envelope(stdout: &str) -> Result<Translated, ProviderError> {
 /// Strip a leading ```json / ``` fence and trailing ``` if the model added them.
 fn strip_fences(s: &str) -> String {
     let t = s.trim();
-    let t = t.strip_prefix("```json").or_else(|| t.strip_prefix("```")).unwrap_or(t);
+    let t = t
+        .strip_prefix("```json")
+        .or_else(|| t.strip_prefix("```"))
+        .unwrap_or(t);
     let t = t.strip_suffix("```").unwrap_or(t);
     t.trim().to_string()
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_envelope, strip_fences};
+    use super::{child_path, parse_envelope, strip_fences};
+    use std::path::Path;
 
     #[test]
     fn strips_json_code_fence() {
@@ -155,9 +236,48 @@ mod tests {
 
     #[test]
     fn parses_structured_output_envelope() {
-        let envelope = r#"{"is_error":false,"structured_output":{"translation":"こんにちは","segments":[]}}"#;
+        let envelope =
+            r#"{"is_error":false,"structured_output":{"translation":"こんにちは","segments":[]}}"#;
         let out = parse_envelope(envelope).unwrap();
         assert_eq!(out.translation, "こんにちは");
+    }
+
+    #[test]
+    fn finds_result_in_verbose_message_array() {
+        let stdout = r#"[{"type":"system","subtype":"init"},{"type":"assistant","message":{}},{"type":"result","is_error":false,"structured_output":{"translation":"Cảm ơn","segments":[],"source_segments":[]}}]"#;
+        assert_eq!(parse_envelope(stdout).unwrap().translation, "Cảm ơn");
+    }
+
+    #[test]
+    fn ignores_lines_printed_around_the_result() {
+        let stdout = "hook: session started\n{\"type\":\"result\",\"is_error\":false,\"structured_output\":{\"translation\":\"Cảm ơn\",\"segments\":[],\"source_segments\":[]}}\nSessionEnd hook done\n";
+        assert_eq!(parse_envelope(stdout).unwrap().translation, "Cảm ơn");
+    }
+
+    #[test]
+    fn empty_output_means_unavailable() {
+        assert!(matches!(
+            parse_envelope("  \n"),
+            Err(super::ProviderError::Unavailable)
+        ));
+        assert!(matches!(
+            parse_envelope("not json at all"),
+            Err(super::ProviderError::BadResponse)
+        ));
+    }
+
+    #[test]
+    fn child_path_puts_the_cli_dir_first_without_duplicates() {
+        let path = child_path(Path::new("/opt/homebrew/bin/claude"), Some("/Users/me"));
+        assert_eq!(
+            path,
+            "/opt/homebrew/bin:/usr/local/bin:/Users/me/.local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+        );
+        let nvm = child_path(
+            Path::new("/Users/me/.nvm/versions/node/v22/bin/claude"),
+            None,
+        );
+        assert!(nvm.starts_with("/Users/me/.nvm/versions/node/v22/bin:/opt/homebrew/bin:"));
     }
 
     #[test]
