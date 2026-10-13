@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { render, cleanup, waitFor, act } from "@testing-library/react";
+import { render, cleanup, waitFor, act, fireEvent } from "@testing-library/react";
 import { invoke } from "@tauri-apps/api/core";
 import { PopupView } from "./popup-view";
 
@@ -8,8 +8,13 @@ import { PopupView } from "./popup-view";
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(() => Promise.resolve({ target_lang: "vi" })),
 }));
+// Keep each event handler so tests can emit capture events.
+const handlers: Record<string, (e: { payload: unknown }) => void> = {};
 vi.mock("@tauri-apps/api/event", () => ({
-  listen: vi.fn(() => Promise.resolve(() => {})),
+  listen: vi.fn((name: string, cb: (e: { payload: unknown }) => void) => {
+    handlers[name] = cb;
+    return Promise.resolve(() => {});
+  }),
 }));
 
 // jsdom has no ResizeObserver; keep the latest callback so tests can fire it.
@@ -69,5 +74,26 @@ describe("PopupView window sizing", () => {
     await waitFor(() =>
       expect(invoke).toHaveBeenCalledWith("resize_popup", { width: 460, height: 310 }),
     );
+  });
+});
+
+describe("PopupView accessibility guidance", () => {
+  it("offers to grant access, then flips to success once access is granted", async () => {
+    let granted = false;
+    vi.mocked(invoke).mockImplementation((cmd: string) =>
+      Promise.resolve(cmd === "check_accessibility" ? granted : { target_lang: "vi" }),
+    );
+    const { getByText, findByText } = render(<PopupView />);
+    await waitFor(() => expect(handlers["capture-error"]).toBeTruthy());
+
+    act(() => handlers["capture-error"]({ payload: { code: "ax-missing" } }));
+    fireEvent.click(await findByText("Cấp quyền"));
+    expect(invoke).toHaveBeenCalledWith("request_accessibility");
+
+    granted = true;
+    expect(await findByText("Đã có quyền Trợ năng.", {}, { timeout: 3000 })).toBeTruthy();
+    expect(() => getByText("Cấp quyền")).toThrow();
+
+    vi.mocked(invoke).mockImplementation(() => Promise.resolve({ target_lang: "vi" }));
   });
 });
