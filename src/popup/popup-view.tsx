@@ -52,6 +52,7 @@ export function PopupView() {
   const [replies, setReplies] = useState<ReplyTurn[]>([]);
   const [replyOpen, setReplyOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const lastHeight = useRef(0);
 
   // Keep latest target lang in a ref so the (subscribe-once) capture listener
   // translates into the current language without re-subscribing.
@@ -115,6 +116,9 @@ export function PopupView() {
     const CARD_PADDING = 28; // .popup top+bottom padding (16 + 12)
     const maxH = Math.floor(window.screen.availHeight * 0.85);
     const height = Math.max(120, Math.min(Math.ceil(el.scrollHeight) + CARD_PADDING, maxH));
+    // Streaming re-renders per chunk; only resize when a line actually wraps.
+    if (height === lastHeight.current) return;
+    lastHeight.current = height;
     void resizePopup(POPUP_WIDTH, height);
   }, [state, source, captureError, targetLang, replies, replyOpen]);
 
@@ -130,8 +134,12 @@ export function PopupView() {
     const idx = replies.length;
     setReplies((rs) => [...rs, { input: trimmed, status: "loading", output: "", segments: [] }]);
     setReplyOpen(false);
+    const onPartial = (partial: string) =>
+      setReplies((rs) =>
+        rs.map((r, i) => (i === idx && r.status === "loading" ? { ...r, output: partial } : r)),
+      );
     try {
-      const res = await translateReply(trimmed, source, original, targetLang);
+      const res = await translateReply(trimmed, source, original, targetLang, onPartial);
       setReplies((rs) =>
         rs.map((r, i) =>
           i === idx ? { ...r, status: "done", output: res.translation, segments: res.segments } : r,
@@ -215,7 +223,11 @@ function ReplyTurnView({ turn }: { turn: ReplyTurn }) {
     <div className="reply-turn">
       <div className="divider" />
       {turn.status === "loading" ? (
-        <p className="loading">Translating…</p>
+        turn.output ? (
+          <p className="translation">{turn.output}</p>
+        ) : (
+          <p className="loading">Translating…</p>
+        )
       ) : turn.status === "error" ? (
         <p className="error">{ERROR_MESSAGES[turn.code ?? ""] ?? "Reply translation failed."}</p>
       ) : (
@@ -268,7 +280,11 @@ function TranslationBody({
     case "idle":
       return <p className="hint">…</p>;
     case "loading":
-      return <p className="loading">Translating…</p>;
+      return state.partial ? (
+        <p className="translation">{state.partial}</p>
+      ) : (
+        <p className="loading">Translating…</p>
+      );
     case "result":
       return (
         <div className="result">

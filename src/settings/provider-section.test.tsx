@@ -19,10 +19,13 @@ const initial: Settings = {
   openai_reasoning_effort: "none",
   has_openai_key: true,
   selection_bubble: true,
+  source_furigana: false,
 };
 
 describe("ProviderSection reasoning effort", () => {
-  beforeEach(() => vi.mocked(setSettings).mockClear());
+  beforeEach(() => {
+    vi.mocked(setSettings).mockClear();
+  });
 
   // No vitest `globals` → RTL auto-cleanup is off; clean up renders explicitly.
   afterEach(cleanup);

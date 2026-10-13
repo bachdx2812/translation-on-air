@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { Channel, invoke } from "@tauri-apps/api/core";
 import type { Translated, TargetLang, ProviderStatus, Settings, SettingsPatch } from "./types";
 
 // Typed wrappers around Rust commands. Keeping invoke calls in one module means
@@ -17,9 +17,20 @@ export const requestAccessibility = (): Promise<boolean> => invoke("request_acce
 export const openAccessibilitySettings = (): Promise<void> =>
   invoke("open_accessibility_settings");
 
+/** Channel that forwards each streamed partial translation to `onPartial`. */
+function partialChannel(onPartial: (text: string) => void): Channel<string> {
+  const channel = new Channel<string>();
+  channel.onmessage = onPartial;
+  return channel;
+}
+
 // --- Translation + providers ---
-export const translate = (text: string, targetLang: TargetLang): Promise<Translated> =>
-  invoke("translate", { text, targetLang });
+export const translate = (
+  text: string,
+  targetLang: TargetLang,
+  onPartial: (text: string) => void,
+): Promise<Translated> =>
+  invoke("translate", { text, targetLang, onPartial: partialChannel(onPartial) });
 export const detectProviders = (): Promise<ProviderStatus> => invoke("detect_providers");
 export const setOpenAiKey = (key: string): Promise<void> => invoke("set_openai_key", { key });
 export const deleteOpenAiKey = (): Promise<void> => invoke("delete_openai_key");
@@ -42,8 +53,15 @@ export const translateReply = (
   originalSource: string,
   originalTranslation: string,
   replyLang: TargetLang,
+  onPartial: (text: string) => void,
 ): Promise<Translated> =>
-  invoke("translate_reply", { reply, originalSource, originalTranslation, replyLang });
+  invoke("translate_reply", {
+    reply,
+    originalSource,
+    originalTranslation,
+    replyLang,
+    onPartial: partialChannel(onPartial),
+  });
 
 // --- Events emitted by the capture pipeline to the popup window ---
 export type CaptureDonePayload = { text: string };

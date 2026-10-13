@@ -2,11 +2,12 @@ import { useState } from "react";
 import { setSettings } from "../shared/tauri-api";
 import type { Settings, TargetLang } from "../shared/types";
 
-/** Default target language + selection-bubble toggle. Saved on change (no global
- * Save button — KISS). */
+/** Default target language + selection-bubble and source-furigana toggles. Saved
+ * on change (no global Save button — KISS). */
 export function GeneralSection({ initial }: { initial: Settings }) {
   const [lang, setLang] = useState<TargetLang>(initial.target_lang);
   const [bubble, setBubble] = useState<boolean>(initial.selection_bubble);
+  const [sourceFurigana, setSourceFurigana] = useState<boolean>(initial.source_furigana);
 
   const onLang = (l: TargetLang) => {
     setLang(l);
@@ -16,6 +17,11 @@ export function GeneralSection({ initial }: { initial: Settings }) {
   const onBubble = (on: boolean) => {
     setBubble(on);
     void setSettings({ selection_bubble: on });
+  };
+
+  const onSourceFurigana = (on: boolean) => {
+    setSourceFurigana(on);
+    void setSettings({ source_furigana: on });
   };
 
   return (
@@ -37,6 +43,18 @@ export function GeneralSection({ initial }: { initial: Settings }) {
       </label>
       <p className="setting-hint">
         Bôi đen text ở bất kỳ app nào để hiện nút dịch nổi cạnh con trỏ (cần quyền Accessibility).
+      </p>
+
+      <label className="setting-check">
+        <input
+          type="checkbox"
+          checked={sourceFurigana}
+          onChange={(e) => onSourceFurigana(e.target.checked)}
+        />
+        Hiện furigana cho câu gốc tiếng Nhật
+      </label>
+      <p className="setting-hint">
+        Tắt để dịch nhanh hơn: model không phải sinh cách đọc cho từng chữ kanji của câu gốc.
       </p>
     </section>
   );
