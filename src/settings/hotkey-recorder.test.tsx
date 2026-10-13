@@ -26,7 +26,7 @@ describe("HotkeyRecorder", () => {
     fireEvent.keyDown(window, { code: "KeyY", metaKey: true, shiftKey: true });
 
     await waitFor(() => expect(setHotkey).toHaveBeenCalledWith("Cmd+Shift+Y"));
-    expect(getByRole("button").textContent).toBe("Cmd+Shift+Y");
+    expect(getByRole("button").textContent).toBe("⇧⌘Y");
   });
 
   it("Escape cancels recording without saving", () => {
@@ -35,7 +35,7 @@ describe("HotkeyRecorder", () => {
 
     fireEvent.keyDown(window, { key: "Escape", code: "Escape" });
     expect(setHotkey).not.toHaveBeenCalled();
-    expect(getByRole("button").textContent).toBe("Cmd+Shift+T");
+    expect(getByRole("button").textContent).toBe("⇧⌘T");
   });
 
   it("ignores keys pressed without a modifier and keeps recording", async () => {
@@ -56,7 +56,7 @@ describe("HotkeyRecorder", () => {
 
     fireEvent.keyDown(window, { code: "KeyY", metaKey: true });
 
-    await waitFor(() => expect(getByText(/Couldn't register/)).toBeTruthy());
-    expect(getByRole("button").textContent).toBe("Cmd+Shift+T");
+    await waitFor(() => expect(getByText(/Không đăng ký được/)).toBeTruthy());
+    expect(getByRole("button").textContent).toBe("⇧⌘T");
   });
 });

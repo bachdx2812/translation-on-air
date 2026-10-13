@@ -10,8 +10,8 @@ use tauri::{
 /// `Quit` exits the whole process (the app has no dock icon, so the tray is the
 /// only way to quit normally).
 pub fn create(app: &AppHandle) -> tauri::Result<()> {
-    let settings_item = MenuItem::with_id(app, "settings", "Settings", true, None::<&str>)?;
-    let quit_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
+    let settings_item = MenuItem::with_id(app, "settings", "Cài đặt…", true, None::<&str>)?;
+    let quit_item = MenuItem::with_id(app, "quit", "Thoát", true, None::<&str>)?;
     let menu = Menu::with_items(app, &[&settings_item, &quit_item])?;
 
     // Reuse the bundled app icon for now. icon_as_template renders it monochrome

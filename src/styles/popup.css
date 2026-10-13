@@ -1,36 +1,75 @@
-/* The card FILLS the transparent window (Rust resizes the window to the content
-   height), so there's no window backing showing as a faint layer around it —
+/* The page itself never scrolls: with a mouse connected macOS uses legacy
+   scrollbars, and a 1px overflow there would add 15px bars that squeeze and
+   clip the card. Only .popup-body scrolls. */
+html[data-view="popup"],
+html[data-view="popup"] body {
+  height: 100%;
+  overflow: hidden;
+}
+
+/* The card FILLS the transparent window exactly (the frontend sizes the window
+   to the content), so no window backing shows as a faint layer around it —
    only the 4 rounded corners are transparent. Opaque, NO backdrop-filter
    (WebKit's blur ignores border-radius and leaks a square) and NO box-shadow
    (it would be clipped by the window anyway; the window itself has shadow:false
    to avoid square corners). */
 .popup {
-  box-sizing: border-box;
-  min-height: 100vh;
-  padding: 16px 18px 12px;
-  border-radius: 16px;
-  background: light-dark(#f6f6f8, #1f1f22);
-  border: 0.5px solid light-dark(rgba(0, 0, 0, 0.14), rgba(255, 255, 255, 0.14));
-  color: light-dark(#1c1c1e, #f2f2f7);
-  font-size: 15px;
-}
-.popup-body {
-  position: relative;
+  height: 100vh;
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  max-height: calc(100vh - 28px);
-  overflow-y: auto;
+  gap: 12px;
+  overflow: hidden;
+  padding: 12px 14px 14px;
+  border-radius: 14px;
+  background: light-dark(#fbfbfd, #1f1f22);
+  border: 0.5px solid var(--border);
+  font-size: 15px;
+  -webkit-user-select: text;
+  user-select: text;
 }
-/* Never let the column shrink its children: if the window is shorter than the
-   content, the body scrolls — children keep full height and the source/
-   translation can never overflow into each other. */
-.popup-body > * {
-  flex-shrink: 0;
+.popup button {
+  cursor: pointer;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.popup svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
 }
 
-/* Header row: language switcher (or brand) on the left, gear on the right. */
+/* Scrolls only when the content is taller than the window's max height. The
+   negative margin parks the slim scrollbar in the card's right padding so the
+   text column keeps its width either way. */
+.popup-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  margin-right: -10px;
+  padding-right: 10px;
+}
+.popup-body::-webkit-scrollbar {
+  width: 6px;
+}
+.popup-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+.popup-body::-webkit-scrollbar-thumb {
+  border-radius: 3px;
+  background: var(--fill-hover);
+}
+/* The measured content: its height + the card chrome = the window height. */
+.popup-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Header: language switcher (or brand) on the left, actions on the right.
+   Outside .popup-body, so it stays put when long content scrolls. */
 .popup-header {
+  flex: none;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -39,63 +78,72 @@
   flex: 1;
   min-width: 0;
 }
-.popup-header .brand {
+.brand {
   flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-left: 2px;
   font-size: 0.82rem;
   font-weight: 600;
-  opacity: 0.6;
+  color: var(--text-2);
 }
-
-/* Settings + close icon buttons in the header. */
 .header-actions {
   flex: none;
   display: flex;
-  gap: 4px;
+  gap: 2px;
 }
 .icon-btn {
-  width: 30px;
-  height: 30px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  width: 28px;
+  height: 28px;
+  display: inline-grid;
+  place-items: center;
   border: none;
-  background: light-dark(rgba(0, 0, 0, 0.05), rgba(255, 255, 255, 0.08));
-  color: inherit;
-  font-size: 1rem;
-  line-height: 1;
-  border-radius: 8px;
-  opacity: 0.7;
-  cursor: pointer;
-  transition: opacity 0.15s, background 0.15s;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-2);
+  transition:
+    background 0.12s,
+    color 0.12s;
 }
 .icon-btn:hover {
-  opacity: 1;
-  background: light-dark(rgba(0, 0, 0, 0.1), rgba(255, 255, 255, 0.14));
+  background: var(--fill-hover);
+  color: var(--text);
 }
 
-/* Segmented language switcher. */
+/* Segmented language switcher: equal columns, labels never wrap. */
 .lang-switcher {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
   gap: 2px;
-  padding: 3px;
-  background: light-dark(rgba(0, 0, 0, 0.06), rgba(255, 255, 255, 0.08));
-  border-radius: 10px;
+  padding: 2px;
+  border-radius: 9px;
+  background: var(--fill);
 }
 .lang-switcher button {
-  flex: 1;
+  min-width: 0;
+  padding: 5px 6px;
   border: none;
-  background: transparent;
-  color: inherit;
-  padding: 6px 8px;
   border-radius: 7px;
-  font-size: 0.84rem;
-  cursor: pointer;
-  transition: background 0.15s, box-shadow 0.15s;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 0.82rem;
+  font-weight: 500;
+  white-space: nowrap;
+  transition:
+    background 0.12s,
+    color 0.12s;
+}
+.lang-switcher button:hover {
+  color: var(--text);
 }
 .lang-switcher button.active {
-  background: light-dark(#ffffff, rgba(255, 255, 255, 0.18));
+  background: light-dark(#ffffff, rgba(255, 255, 255, 0.16));
+  color: var(--text);
   font-weight: 600;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.16);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.12),
+    0 0 0 0.5px rgba(0, 0, 0, 0.04);
 }
 
 /* Stacked panels: translation (primary) on top, source (muted) below. Each is
@@ -107,11 +155,12 @@
   gap: 8px;
 }
 .translation-panel {
-  min-height: 28px;
+  min-height: 26px;
 }
 .divider {
   height: 0.5px;
-  background: light-dark(rgba(0, 0, 0, 0.12), rgba(255, 255, 255, 0.14));
+  flex: none;
+  background: var(--separator);
 }
 
 /* Preserve input formatting (line breaks) via pre-wrap. */
@@ -122,100 +171,177 @@
   word-break: break-word;
   overflow-wrap: anywhere;
 }
-/* Source: secondary, muted. */
 .src-text {
-  font-size: 0.95rem;
-  line-height: 1.5;
-  color: light-dark(#5b5b60, #a0a0a6);
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: var(--text-2);
 }
-/* Translation: primary, the thing the user came for. */
 .translation {
-  font-size: 1.3rem;
+  font-size: 1.2rem;
   font-weight: 500;
   line-height: 1.5;
+}
+/* Caret after the text while the translation is still streaming in. */
+.translation.streaming::after {
+  content: "";
+  display: inline-block;
+  width: 2px;
+  height: 1.05em;
+  margin-left: 2px;
+  vertical-align: -0.15em;
+  border-radius: 1px;
+  background: var(--accent);
+  animation: caret 1s steps(2, jump-none) infinite;
+}
+@keyframes caret {
+  to {
+    opacity: 0;
+  }
 }
 
 .furigana {
   margin: 0;
   white-space: pre-wrap;
   word-break: break-word;
-  font-size: 1.2rem;
+  font-size: 1.15rem;
   line-height: 2.1;
   ruby-position: over;
   -webkit-ruby-position: over;
 }
 .source-panel .furigana {
-  font-size: 1rem;
+  font-size: 0.95rem;
   line-height: 1.9;
-  opacity: 0.8;
+  color: var(--text-2);
 }
 .furigana rt {
   font-size: 0.5em;
-  opacity: 0.7;
-  user-select: none;
   font-weight: 400;
+  color: var(--text-3);
+  -webkit-user-select: none;
+  user-select: none;
 }
 
-.loading {
-  margin: 0;
-  opacity: 0.6;
-  animation: pulse 1.4s ease-in-out infinite;
+/* Placeholder lines while waiting for the first streamed words. */
+.skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 5px 0;
 }
-@keyframes pulse {
-  0%,
-  100% {
-    opacity: 0.4;
+.skeleton span {
+  height: 12px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--fill) 30%, var(--fill-hover) 50%, var(--fill) 70%);
+  background-size: 300% 100%;
+  animation: shimmer 1.3s ease-in-out infinite;
+}
+.skeleton span:last-child {
+  width: 62%;
+}
+@keyframes shimmer {
+  from {
+    background-position: 100% 0;
   }
-  50% {
-    opacity: 0.85;
+  to {
+    background-position: 0 0;
   }
 }
 
-/* Result block: translation, then a right-aligned Copy button. */
 .result {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
-.copy-btn {
-  align-self: flex-end;
-  padding: 5px 14px;
-  border: none;
-  border-radius: 8px;
-  background: var(--accent);
-  color: #fff;
-  font-size: 0.8rem;
-  cursor: pointer;
-  transition: opacity 0.15s;
-}
-.copy-btn:hover {
-  opacity: 0.88;
+.result-actions {
+  display: flex;
+  gap: 6px;
 }
 
-/* Reply thread + composer. */
+/* Small secondary action (Copy, Retry, …). */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 7px;
+  background: var(--fill);
+  color: var(--text-2);
+  font-size: 0.8rem;
+  font-weight: 500;
+  transition:
+    background 0.12s,
+    color 0.12s;
+}
+.chip:hover {
+  background: var(--fill-hover);
+  color: var(--text);
+}
+.chip.done {
+  color: var(--success);
+}
+.chip svg {
+  width: 14px;
+  height: 14px;
+}
+.chip-primary {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+.chip-primary:hover {
+  background: var(--accent);
+  color: var(--accent-text);
+  filter: brightness(1.08);
+}
+.chip:disabled {
+  opacity: 0.4;
+  cursor: default;
+  filter: none;
+}
+
+/* Reply thread: what the user wrote, then its translation into the source
+   language (the text to copy and send back). */
 .reply-turn {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 .reply-in {
-  align-self: flex-start;
+  margin: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
   font-size: 0.85rem;
-  color: light-dark(#6c6c70, #98989d);
+  line-height: 1.45;
+  color: var(--text-3);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
-.reply-btn {
-  align-self: flex-start;
-  padding: 6px 14px;
-  border: 0.5px solid light-dark(rgba(0, 0, 0, 0.18), rgba(255, 255, 255, 0.2));
-  border-radius: 8px;
-  background: transparent;
-  color: inherit;
-  font-size: 0.85rem;
-  cursor: pointer;
-  transition: background 0.15s;
+.reply-in svg {
+  width: 14px;
+  height: 14px;
+  margin-top: 0.15em;
 }
-.reply-btn:hover {
-  background: light-dark(rgba(0, 0, 0, 0.05), rgba(255, 255, 255, 0.08));
+
+/* Collapsed composer: looks like an empty field, opens the real one. */
+.reply-trigger {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  height: 34px;
+  padding: 0 11px;
+  border: 0.5px solid var(--border);
+  border-radius: 9px;
+  background: light-dark(#ffffff, rgba(255, 255, 255, 0.04));
+  color: var(--text-3);
+  font-size: 0.88rem;
+  text-align: left;
+  transition: border-color 0.12s;
+}
+.reply-trigger:hover {
+  border-color: var(--text-3);
 }
 .reply-box {
   display: flex;
@@ -224,68 +350,70 @@
 }
 .reply-input {
   width: 100%;
-  box-sizing: border-box;
-  resize: vertical;
-  padding: 9px 11px;
+  min-height: 60px;
+  resize: none;
+  padding: 8px 11px;
   border-radius: 9px;
-  border: 0.5px solid light-dark(rgba(0, 0, 0, 0.2), rgba(255, 255, 255, 0.2));
-  background: light-dark(#ffffff, rgba(255, 255, 255, 0.06));
+  border: 0.5px solid var(--border);
+  background: light-dark(#ffffff, rgba(255, 255, 255, 0.05));
   color: inherit;
   font: inherit;
-  font-size: 0.95rem;
+  font-size: 0.92rem;
+  line-height: 1.45;
 }
 .reply-input:focus {
-  outline: 2px solid var(--accent);
-  outline-offset: -1px;
-  border-color: transparent;
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
 }
 .reply-actions {
   display: flex;
-  justify-content: flex-end;
-  gap: 8px;
+  align-items: center;
+  gap: 6px;
 }
-.reply-cancel,
-.reply-send {
-  padding: 5px 14px;
-  border-radius: 8px;
-  font-size: 0.8rem;
-  cursor: pointer;
-  border: 0.5px solid transparent;
-}
-.reply-cancel {
-  background: transparent;
-  color: inherit;
-  border-color: light-dark(rgba(0, 0, 0, 0.18), rgba(255, 255, 255, 0.2));
-}
-.reply-send {
-  background: var(--accent);
-  color: #fff;
-  border: none;
-}
-.reply-send:disabled {
-  opacity: 0.4;
-  cursor: default;
+.reply-actions .kbd-hint {
+  flex: 1;
+  font-size: 0.75rem;
+  color: var(--text-3);
 }
 
-.error {
+/* Errors and guidance: icon + message, then actions. */
+.notice {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.notice > svg {
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  color: var(--danger);
+}
+.notice.info > svg {
+  color: var(--accent);
+}
+.notice-body {
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
-.error p {
+.notice-body p {
   margin: 0;
+  line-height: 1.45;
 }
-.error button {
-  align-self: flex-start;
-  padding: 5px 12px;
-  border-radius: 8px;
-  border: 0.5px solid light-dark(rgba(0, 0, 0, 0.2), rgba(255, 255, 255, 0.2));
-  background: transparent;
-  color: inherit;
-  cursor: pointer;
+.notice-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
 }
-.hint {
+.popup .hint {
   margin: 0;
-  color: light-dark(#8e8e93, #98989d);
-  font-size: 0.88rem;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--text-3);
+}
+.popup kbd {
+  margin: 0 1px;
 }

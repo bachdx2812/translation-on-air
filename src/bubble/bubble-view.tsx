@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { bubbleTranslate, hideBubble } from "../shared/tauri-api";
+import { IconGlobe } from "../shared/icons";
 import "../styles/bubble.css";
 
 /**
@@ -17,10 +18,8 @@ export function BubbleView() {
   }, []);
 
   return (
-    <button className="bubble-btn" onClick={() => void bubbleTranslate()} title="Dịch">
-      <span className="bubble-glyph" aria-hidden>
-        🌐
-      </span>
+    <button className="bubble-btn" onClick={() => void bubbleTranslate()} title="Dịch đoạn đang chọn">
+      <IconGlobe />
       Dịch
     </button>
   );

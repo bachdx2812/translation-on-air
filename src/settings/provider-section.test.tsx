@@ -32,12 +32,12 @@ describe("ProviderSection reasoning effort", () => {
 
   it("shows the saved effort", () => {
     const { getByLabelText } = render(<ProviderSection initial={initial} />);
-    expect((getByLabelText("OpenAI reasoning effort") as HTMLSelectElement).value).toBe("none");
+    expect((getByLabelText("Mức suy luận") as HTMLSelectElement).value).toBe("none");
   });
 
   it("persists the chosen effort", () => {
     const { getByLabelText } = render(<ProviderSection initial={initial} />);
-    const select = getByLabelText("OpenAI reasoning effort") as HTMLSelectElement;
+    const select = getByLabelText("Mức suy luận") as HTMLSelectElement;
 
     fireEvent.change(select, { target: { value: "low" } });
 

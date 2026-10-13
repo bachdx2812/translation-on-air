@@ -1,151 +1,310 @@
+/* Everything is scoped under .settings: every window shares one stylesheet
+   bundle, so bare element selectors here would restyle the popup too. */
 .settings {
+  --bg: light-dark(#f2f2f5, #1c1c1f);
+  --card: light-dark(#ffffff, #29292d);
+  --field: light-dark(#ffffff, rgba(255, 255, 255, 0.06));
+
   /* Fixed to the window height and scrollable, so every section is reachable
-     even when the window is small (no need to resize the window to scroll). */
+     even when the window is small. */
   height: 100vh;
   overflow-y: auto;
-  box-sizing: border-box;
-  padding: 22px 24px;
+  padding: 16px 20px 20px;
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  background: light-dark(#f5f5f7, #1c1c1e);
-  color: light-dark(#1c1c1e, #f2f2f7);
-  font-size: 14px;
+  gap: 20px;
+  background: var(--bg);
+  font-size: 13.5px;
 }
-/* Sections keep their natural height so the list scrolls instead of squashing. */
-.settings > * {
-  flex-shrink: 0;
-}
-
-.settings h1 {
+.settings-loading {
   margin: 0;
-  font-size: 1.35rem;
-  font-weight: 650;
+  color: var(--text-3);
 }
 
-.setting-section {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 16px 18px;
-  background: light-dark(#ffffff, #2c2c2e);
-  border: 0.5px solid light-dark(rgba(0, 0, 0, 0.08), rgba(255, 255, 255, 0.08));
-  border-radius: 12px;
-}
-.setting-section > label {
-  font-size: 0.7rem;
+/* Group: small title, rounded card of rows, optional footnote. */
+.group-title {
+  margin: 0 0 7px 12px;
+  font-size: 0.8rem;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: light-dark(#6e6e73, #98989d);
+  color: var(--text-2);
 }
-
-input,
-select {
-  padding: 8px 11px;
-  border-radius: 8px;
-  font: inherit;
-  color: inherit;
-  background: light-dark(#ffffff, #1c1c1e);
-  border: 0.5px solid light-dark(rgba(0, 0, 0, 0.18), rgba(255, 255, 255, 0.16));
-}
-input:focus,
-select:focus {
-  outline: 2px solid var(--accent);
-  outline-offset: -1px;
-  border-color: transparent;
-}
-
-/* Checkbox row: opt out of the uppercase section-label styling. */
-.setting-section > label.setting-check {
-  flex-direction: row;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  text-transform: none;
-  letter-spacing: normal;
-  font-size: 0.9rem;
-  font-weight: 400;
-  color: inherit;
-  cursor: pointer;
-}
-.setting-check input[type="checkbox"] {
-  width: auto;
-  padding: 0;
-  margin: 0;
-}
-.setting-hint {
-  margin: 0;
-  font-size: 0.78rem;
-  line-height: 1.45;
-  color: light-dark(#8e8e93, #98989d);
-}
-
-button {
-  font: inherit;
-  padding: 7px 14px;
-  border-radius: 8px;
-  cursor: pointer;
-  color: inherit;
-  background: light-dark(#ffffff, #2c2c2e);
-  border: 0.5px solid light-dark(rgba(0, 0, 0, 0.18), rgba(255, 255, 255, 0.18));
-  transition: background 0.15s;
-}
-button:hover {
-  background: light-dark(#ececef, #3a3a3c);
-}
-
-.radios {
-  display: flex;
-  gap: 4px;
-  padding: 3px;
-  background: light-dark(rgba(0, 0, 0, 0.05), rgba(255, 255, 255, 0.06));
+.group-card {
+  background: var(--card);
+  border: 0.5px solid var(--separator);
   border-radius: 10px;
 }
-.radios label {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  padding: 7px;
-  border-radius: 8px;
-  font-weight: 500;
-  cursor: pointer;
-}
-.radios input {
-  accent-color: var(--accent);
-}
-
-.status {
-  margin: 0;
-  font-size: 0.85rem;
-  font-weight: 500;
-  color: var(--accent);
-}
-.hint {
-  margin: 0;
+.group-footnote {
+  margin: 8px 12px 0;
   font-size: 0.78rem;
   line-height: 1.45;
-  color: light-dark(#8e8e93, #98989d);
+  color: var(--text-3);
 }
+
+.row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 44px;
+  padding: 9px 14px;
+}
+/* Inset hairline between rows, like macOS grouped lists. */
+.row + .row::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 14px;
+  right: 0;
+  height: 0.5px;
+  background: var(--separator);
+}
+.row.stacked {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+}
+.row-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.row-label {
+  font-weight: 500;
+}
+.row-hint {
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: var(--text-3);
+}
+.row-control {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+.row.stacked .row-control {
+  align-items: stretch;
+}
+
+/* Native popup buttons look right on macOS; only the font is aligned. */
+.settings select {
+  font: inherit;
+  font-size: 13px;
+  max-width: 220px;
+}
+.settings input:is([type="password"], [type="text"], :not([type])) {
+  height: 28px;
+  padding: 0 9px;
+  border-radius: 7px;
+  border: 0.5px solid var(--border);
+  background: var(--field);
+  color: inherit;
+  font: inherit;
+}
+.settings input:focus-visible,
+.settings select:focus-visible,
+.settings button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+.model-input {
+  width: 190px;
+}
+
+/* On/off switch built from a checkbox (keeps label + keyboard behaviour). */
+.switch {
+  -webkit-appearance: none;
+  appearance: none;
+  position: relative;
+  flex: none;
+  width: 34px;
+  height: 20px;
+  margin: 0;
+  border-radius: 10px;
+  background: var(--fill-hover);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.switch::before {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  transition: transform 0.15s;
+}
+.switch:checked {
+  background: var(--accent);
+}
+.switch:checked::before {
+  transform: translateX(14px);
+}
+.switch:focus-visible {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+/* Segmented control built from radios. */
+.segmented {
+  display: inline-grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 8px;
+  background: var(--fill);
+}
+.segmented label {
+  padding: 4px 12px;
+  border-radius: 6px;
+  color: var(--text-2);
+  font-size: 0.85rem;
+  font-weight: 500;
+  text-align: center;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background 0.12s,
+    color 0.12s;
+}
+.segmented label.active {
+  background: light-dark(#ffffff, rgba(255, 255, 255, 0.16));
+  color: var(--text);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+.segmented label:has(input:focus-visible) {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+.segmented input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.btn {
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 7px;
+  border: 0.5px solid var(--border);
+  background: var(--field);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.btn:hover {
+  background: var(--fill-hover);
+}
+.btn-primary,
+.btn-primary:hover {
+  border-color: transparent;
+  background: var(--accent);
+  color: var(--accent-text);
+}
+.btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--accent);
+  font-size: inherit;
+  cursor: pointer;
+}
+.link-btn:hover {
+  text-decoration: underline;
+}
+.settings svg {
+  width: 13px;
+  height: 13px;
+  flex: none;
+}
+
+.status-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+}
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-2);
+}
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-3);
+}
+.status.ok .dot {
+  background: var(--success);
+}
+.status.bad .dot {
+  background: var(--danger);
+}
+
 .key-row {
   display: flex;
-  gap: 8px;
   align-items: center;
+  gap: 10px;
 }
 .key-row input {
   flex: 1;
+  min-width: 0;
 }
-.err {
-  margin: 0;
-  font-size: 0.8rem;
-  color: #e5484d;
+.key-saved {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--success);
+  font-weight: 500;
 }
+
 .hotkey-field {
-  align-self: stretch;
-  text-align: center;
-  font-weight: 600;
-  padding: 10px;
-  letter-spacing: 0.02em;
+  min-width: 110px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  padding: 0 10px;
+  border-radius: 7px;
+  border: 0.5px solid var(--border);
+  background: var(--field);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.hotkey-field kbd {
+  min-width: 0;
+  height: auto;
+  padding: 0;
+  background: none;
+  box-shadow: none;
+  font-size: 0.95rem;
+}
+.hotkey-field.recording {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+  color: var(--accent);
+}
+.settings .err {
+  max-width: 230px;
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  text-align: right;
+  color: var(--danger);
 }

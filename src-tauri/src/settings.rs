@@ -127,7 +127,7 @@ pub fn set_settings(
     }
     if let Some(v) = patch.selection_bubble {
         store.set(K_SELECTION_BUBBLE, json!(v));
-        crate::selection::set_enabled(v);
+        crate::selection::set_enabled(&app, v);
     }
     if let Some(v) = patch.source_furigana {
         store.set(K_SOURCE_FURIGANA, json!(v));

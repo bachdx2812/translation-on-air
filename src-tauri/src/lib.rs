@@ -56,22 +56,22 @@ pub fn run() {
             settings::set_settings,
             settings::set_hotkey,
         ])
-        .on_window_event(|window, event| {
-            // Hide popup/settings on close instead of destroying them, so the
-            // webviews stay warm and re-show instantly (no cold start on hotkey).
-            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                if matches!(window.label(), "settings" | "popup") {
-                    api.prevent_close();
-                    let _ = window.hide();
-                    // Closing settings → go back to no-dock accessory mode.
-                    #[cfg(target_os = "macos")]
-                    if window.label() == "settings" {
-                        let _ = window
-                            .app_handle()
-                            .set_activation_policy(tauri::ActivationPolicy::Accessory);
-                    }
-                }
+        .on_window_event(|window, event| match event {
+            // Hide the popup on close instead of destroying it, so its webview
+            // stays warm and the hotkey shows it instantly (no cold start).
+            tauri::WindowEvent::CloseRequested { api, .. } if window.label() == "popup" => {
+                api.prevent_close();
+                let _ = window.hide();
             }
+            // Settings is rarely open, so closing destroys it to free its
+            // webview (rebuilt on demand) → back to no-dock accessory mode.
+            #[cfg(target_os = "macos")]
+            tauri::WindowEvent::Destroyed if window.label() == "settings" => {
+                let _ = window
+                    .app_handle()
+                    .set_activation_policy(tauri::ActivationPolicy::Accessory);
+            }
+            _ => {}
         })
         .setup(|app| {
             // Background agent: hide dock icon on macOS so the app lives only in the
@@ -84,10 +84,9 @@ pub fn run() {
             // Right-click → Services → Translate (Info.plist NSServices entry).
             #[cfg(target_os = "macos")]
             services::register(app.handle());
-            // Selection bubble: install the global mouse-up monitor, gated by the
-            // persisted setting (default on).
-            selection::set_enabled(settings::selection_bubble(app.handle()));
-            selection::register(app.handle());
+            // Selection bubble (default on): its window and global mouse
+            // monitors exist only while the setting is on.
+            selection::set_enabled(app.handle(), settings::selection_bubble(app.handle()));
             Ok(())
         })
         .run(tauri::generate_context!())

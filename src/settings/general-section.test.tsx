@@ -6,6 +6,7 @@ import type { Settings } from "../shared/types";
 
 vi.mock("../shared/tauri-api", () => ({
   setSettings: vi.fn().mockResolvedValue(undefined),
+  setHotkey: vi.fn().mockResolvedValue(undefined),
 }));
 
 const initial: Settings = {
@@ -29,7 +30,7 @@ describe("GeneralSection source furigana", () => {
 
   it("persists turning source furigana on", () => {
     const { getByLabelText } = render(<GeneralSection initial={initial} />);
-    const box = getByLabelText("Hiện furigana cho câu gốc tiếng Nhật") as HTMLInputElement;
+    const box = getByLabelText("Furigana cho câu gốc tiếng Nhật") as HTMLInputElement;
     expect(box.checked).toBe(false);
 
     fireEvent.click(box);

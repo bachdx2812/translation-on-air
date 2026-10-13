@@ -5,14 +5,10 @@
 //! pipeline. macOS has no API to add a top-level item to another app's
 //! right-click menu, so this is how we get an "outside the Services menu" UX.
 
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 
 use tauri::{AppHandle, Manager, PhysicalPosition};
 
-/// Whether the bubble feature is on. The global monitor stays installed for the
-/// app's lifetime; this flag (flipped by settings) gates whether it acts.
-static ENABLED: AtomicBool = AtomicBool::new(true);
 /// The most recently captured selection, handed to the pipeline on bubble click.
 static SELECTED: Mutex<String> = Mutex::new(String::new());
 /// Cursor position at the last left-mouse-down, to tell a drag (selection
@@ -23,11 +19,26 @@ static LAST_DOWN: Mutex<Option<(f64, f64)>> = Mutex::new(None);
 const BUBBLE_W: f64 = 104.0;
 const BUBBLE_H: f64 = 40.0;
 
-pub fn set_enabled(on: bool) {
-    ENABLED.store(on, Ordering::Relaxed);
-    if !on {
-        // Nothing to actively tear down; the next mouse-up early-returns.
-    }
+/// Turn the bubble feature on or off. Off destroys the bubble window and
+/// removes the global mouse monitors, so a disabled feature costs no memory and
+/// no wakeup per click.
+pub fn set_enabled(app: &AppHandle, on: bool) {
+    let handle = app.clone();
+    // AppKit monitors and window creation belong on the main thread; this runs
+    // inline when the caller is already there (setup, sync commands).
+    let _ = app.run_on_main_thread(move || {
+        if on {
+            if handle.get_webview_window("bubble").is_none() {
+                let _ = crate::windows::build_lazy_window(&handle, "bubble", |_| {});
+            }
+            monitors::install(&handle);
+        } else {
+            monitors::remove();
+            if let Some(win) = handle.get_webview_window("bubble") {
+                let _ = win.destroy();
+            }
+        }
+    });
 }
 
 /// Hand the stored selection to the caller (bubble_translate command).
@@ -95,9 +106,6 @@ unsafe fn read_selected_text() -> Option<String> {
 /// gesture) from a plain click.
 #[cfg(target_os = "macos")]
 fn on_mouse_down(app: &AppHandle) {
-    if !ENABLED.load(Ordering::Relaxed) {
-        return;
-    }
     if let Ok(p) = app.cursor_position() {
         if let Ok(mut g) = LAST_DOWN.lock() {
             *g = Some((p.x, p.y));
@@ -107,10 +115,6 @@ fn on_mouse_down(app: &AppHandle) {
 
 #[cfg(target_os = "macos")]
 fn on_mouse_up(app: &AppHandle) {
-    if !ENABLED.load(Ordering::Relaxed) {
-        return;
-    }
-
     // Snapshot the cursor AT mouse-up: the async Cmd+C path runs hundreds of ms
     // later, by which point the pointer has moved — so the bubble must be placed
     // using this position, not a fresh read.
@@ -192,42 +196,63 @@ fn show_bubble(app: &AppHandle, text: String, at: Option<(f64, f64)>) {
     let _ = win.show();
 }
 
-/// Install the global mouse-up monitor. Must run on the main thread (setup does).
+/// Global mouse-down/up monitors. Main thread only (`set_enabled` ensures it).
 #[cfg(target_os = "macos")]
-pub fn register(app: &AppHandle) {
+mod monitors {
     use block2::RcBlock;
     use objc2::rc::Retained;
     use objc2::runtime::AnyObject;
     use objc2_app_kit::{NSEvent, NSEventMask};
+    use std::cell::RefCell;
     use std::ptr::NonNull;
+    use tauri::AppHandle;
 
-    // Global monitors only observe events bound for OTHER apps, so clicks on our
-    // own bubble never re-trigger these.
-    let down_app = app.clone();
-    let down_handler = RcBlock::new(move |_event: NonNull<NSEvent>| {
-        on_mouse_down(&down_app);
-    });
-    let down_token: Option<Retained<AnyObject>> = NSEvent::addGlobalMonitorForEventsMatchingMask_handler(
-        NSEventMask::LeftMouseDown,
-        &down_handler,
-    );
+    thread_local! {
+        static TOKENS: RefCell<Vec<Retained<AnyObject>>> = const { RefCell::new(Vec::new()) };
+    }
 
-    let up_app = app.clone();
-    let up_handler = RcBlock::new(move |_event: NonNull<NSEvent>| {
-        on_mouse_up(&up_app);
-    });
-    let up_token: Option<Retained<AnyObject>> =
-        NSEvent::addGlobalMonitorForEventsMatchingMask_handler(NSEventMask::LeftMouseUp, &up_handler);
+    /// No-op when already installed.
+    pub fn install(app: &AppHandle) {
+        TOKENS.with_borrow_mut(|tokens| {
+            if !tokens.is_empty() {
+                return;
+            }
+            // Global monitors only observe events bound for OTHER apps, so clicks
+            // on our own bubble never re-trigger these.
+            let down_app = app.clone();
+            let down = RcBlock::new(move |_event: NonNull<NSEvent>| {
+                super::on_mouse_down(&down_app);
+            });
+            let up_app = app.clone();
+            let up = RcBlock::new(move |_event: NonNull<NSEvent>| {
+                super::on_mouse_up(&up_app);
+            });
+            // AppKit copies the blocks; the tokens keep the monitors removable.
+            tokens.extend(NSEvent::addGlobalMonitorForEventsMatchingMask_handler(
+                NSEventMask::LeftMouseDown,
+                &down,
+            ));
+            tokens.extend(NSEvent::addGlobalMonitorForEventsMatchingMask_handler(
+                NSEventMask::LeftMouseUp,
+                &up,
+            ));
+        });
+    }
 
-    // Keep the monitors (and their blocks) alive for the app's lifetime.
-    if let (Some(d), Some(u)) = (down_token, up_token) {
-        std::mem::forget(d);
-        std::mem::forget(u);
+    pub fn remove() {
+        TOKENS.with_borrow_mut(|tokens| {
+            for token in tokens.drain(..) {
+                unsafe { NSEvent::removeMonitor(&token) };
+            }
+        });
     }
 }
 
 #[cfg(not(target_os = "macos"))]
-pub fn register(_app: &AppHandle) {}
+mod monitors {
+    pub fn install(_app: &tauri::AppHandle) {}
+    pub fn remove() {}
+}
 
 /// Translate the stored selection and dismiss the bubble (called from the
 /// bubble's button).
