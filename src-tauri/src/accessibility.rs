@@ -27,10 +27,36 @@ pub fn check_accessibility() -> bool {
 /// Trigger the system Accessibility prompt (registers the app in the
 /// Privacy & Security list). Only called from an explicit user click so the
 /// system dialog never stacks on top of the in-app guidance.
+///
+/// A grant is bound to the code signature of the build that received it, and
+/// ad-hoc signatures change with every build. After an update System Settings
+/// still shows the app as allowed while this build is not, and macOS skips its
+/// prompt because an entry exists. Clearing our own entry first brings the
+/// prompt back, and the next grant matches this build.
 #[tauri::command]
-pub fn request_accessibility() -> bool {
+pub async fn request_accessibility(app: tauri::AppHandle) -> bool {
+    if is_trusted(false) {
+        return true;
+    }
+    reset_own_entry(&app.config().identifier).await;
     is_trusted(true)
 }
+
+#[cfg(target_os = "macos")]
+async fn reset_own_entry(bundle_id: &str) {
+    let status = tokio::process::Command::new("/usr/bin/tccutil")
+        .args(["reset", "Accessibility", bundle_id])
+        .status()
+        .await;
+    // Best effort: on failure the user can still remove the stale entry by
+    // hand (the popup explains how).
+    if !matches!(status, Ok(s) if s.success()) {
+        eprintln!("[accessibility] tccutil reset failed: {status:?}");
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+async fn reset_own_entry(_bundle_id: &str) {}
 
 /// Open System Settings → Privacy & Security → Accessibility so the user can
 /// grant permission.

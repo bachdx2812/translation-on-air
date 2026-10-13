@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import {
+  checkAccessibility,
   getSettings,
   hidePopup,
   openAccessibilitySettings,
@@ -14,7 +15,14 @@ import {
 } from "../shared/tauri-api";
 import type { Segment, TargetLang } from "../shared/types";
 import { hotkeyKeys } from "../shared/hotkey";
-import { IconAlert, IconClose, IconGlobe, IconReply, IconSettings } from "../shared/icons";
+import {
+  IconAlert,
+  IconCheck,
+  IconClose,
+  IconGlobe,
+  IconReply,
+  IconSettings,
+} from "../shared/icons";
 import { useTranslation } from "./use-translation";
 import { FuriganaText } from "./furigana-text";
 import { LangSwitcher } from "./lang-switcher";
@@ -392,28 +400,69 @@ function TranslationBody({
   }
 }
 
-function CaptureErrorView({ code, hotkey }: { code: CaptureErrorCode; hotkey: string | null }) {
-  if (code === "ax-missing") {
+/** How often the permission guidance re-checks whether access was granted. */
+const AX_POLL_MS = 1000;
+
+/** Accessibility guidance. Re-checks while visible so it flips to a success
+ * message as soon as the user turns the permission on. */
+function AxMissingView({ hotkey }: { hotkey: string | null }) {
+  const [granted, setGranted] = useState(false);
+
+  useEffect(() => {
+    if (granted) return;
+    let cancelled = false;
+    const check = () => {
+      if (document.visibilityState !== "visible") return;
+      void checkAccessibility()
+        .then((ok) => !cancelled && ok && setGranted(true))
+        .catch(() => {});
+    };
+    check();
+    const id = setInterval(check, AX_POLL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [granted]);
+
+  if (granted) {
     return (
-      <div className="notice">
-        <IconAlert />
+      <div className="notice ok">
+        <IconCheck />
         <div className="notice-body">
-          <p>Cần quyền Trợ năng (Accessibility) để đọc đoạn text đang được bôi đen.</p>
+          <p>Đã có quyền Trợ năng.</p>
           <p className="hint">
-            Đã bật trong danh sách mà vẫn báo lỗi? Xoá app bằng nút “−” rồi thêm lại — mỗi lần
-            cập nhật app, quyền cũ sẽ mất hiệu lực.
+            Bôi đen đoạn cần dịch rồi bấm {hotkey ? <Keys accel={hotkey} /> : "phím tắt"}.
           </p>
-          <div className="notice-actions">
-            <button className="chip chip-primary" onClick={() => void requestAccessibility()}>
-              Cấp quyền
-            </button>
-            <button className="chip" onClick={() => void openAccessibilitySettings()}>
-              Mở Cài đặt hệ thống
-            </button>
-          </div>
         </div>
       </div>
     );
+  }
+  return (
+    <div className="notice">
+      <IconAlert />
+      <div className="notice-body">
+        <p>Cần quyền Trợ năng (Accessibility) để đọc đoạn text đang được bôi đen.</p>
+        <p className="hint">
+          Bấm “Cấp quyền” rồi bật Translate On Air trong danh sách. Nếu app đã được bật từ bản
+          trước, nút này xoá quyền cũ để macOS hỏi lại cho bản hiện tại.
+        </p>
+        <div className="notice-actions">
+          <button className="chip chip-primary" onClick={() => void requestAccessibility()}>
+            Cấp quyền
+          </button>
+          <button className="chip" onClick={() => void openAccessibilitySettings()}>
+            Mở Cài đặt hệ thống
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CaptureErrorView({ code, hotkey }: { code: CaptureErrorCode; hotkey: string | null }) {
+  if (code === "ax-missing") {
+    return <AxMissingView hotkey={hotkey} />;
   }
   if (code === "no-selection") {
     return (

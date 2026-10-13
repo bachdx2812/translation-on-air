@@ -392,6 +392,9 @@ html[data-view="popup"] body {
 .notice.info > svg {
   color: var(--accent);
 }
+.notice.ok > svg {
+  color: var(--success);
+}
 .notice-body {
   min-width: 0;
   display: flex;
