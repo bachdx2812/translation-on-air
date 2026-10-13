@@ -22,20 +22,10 @@ pub struct ClaudeInfo {
 /// Detect a usable Claude CLI: a known binary path that exists AND subscription
 /// credentials present. GUI apps inherit a minimal PATH, so probe absolute paths.
 pub fn detect() -> Option<ClaudeInfo> {
-    let home = std::env::var("HOME").ok();
-    let mut candidates: Vec<PathBuf> = [
-        "/opt/homebrew/bin/claude",
-        "/usr/local/bin/claude",
-        "/Applications/cmux.app/Contents/Resources/bin/claude",
-    ]
-    .iter()
-    .map(PathBuf::from)
-    .collect();
-    if let Some(h) = &home {
-        candidates.push(PathBuf::from(format!("{h}/.local/bin/claude")));
-    }
-
-    let path = candidates.into_iter().find(|p| p.exists())?;
+    let home = home_dir();
+    let path = candidates(home.as_deref())
+        .into_iter()
+        .find(|p| p.exists())?;
     if !creds_present(home.as_deref()) {
         return None;
     }
@@ -45,6 +35,25 @@ pub fn detect() -> Option<ClaudeInfo> {
         supports_safe_mode: help.contains("--safe-mode"),
         path,
     })
+}
+
+/// Where to look for `claude`, real installs first. cmux's bundled `claude` is
+/// a wrapper that re-resolves the real binary through PATH, so it is only a
+/// last resort (and works only thanks to `child_path`).
+fn candidates(home: Option<&str>) -> Vec<PathBuf> {
+    let mut paths = Vec::new();
+    if let Some(h) = home {
+        paths.push(PathBuf::from(format!("{h}/.local/bin/claude")));
+    }
+    paths.extend(
+        [
+            "/opt/homebrew/bin/claude",
+            "/usr/local/bin/claude",
+            "/Applications/cmux.app/Contents/Resources/bin/claude",
+        ]
+        .map(PathBuf::from),
+    );
+    paths
 }
 
 /// PATH for the CLI subprocess. GUI apps inherit a minimal PATH, and an npm
@@ -225,7 +234,7 @@ fn strip_fences(s: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{child_path, parse_envelope, strip_fences};
+    use super::{candidates, child_path, parse_envelope, strip_fences};
     use std::path::Path;
 
     #[test]
@@ -278,6 +287,16 @@ mod tests {
             None,
         );
         assert!(nvm.starts_with("/Users/me/.nvm/versions/node/v22/bin:/opt/homebrew/bin:"));
+    }
+
+    #[test]
+    fn prefers_real_installs_over_the_cmux_wrapper() {
+        let paths = candidates(Some("/Users/me"));
+        assert_eq!(
+            paths.first().unwrap(),
+            Path::new("/Users/me/.local/bin/claude")
+        );
+        assert!(paths.last().unwrap().starts_with("/Applications/cmux.app"));
     }
 
     #[test]
