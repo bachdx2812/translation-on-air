@@ -148,12 +148,14 @@ export function PopupView() {
 
   return (
     // .popup fills the window (opaque rounded card); .popup-body holds the
-    // measured content.
-    <div className="popup">
-      <div className="popup-body" ref={rootRef}>
+    // measured content. The window is frameless, so the header (minus its
+    // buttons) and any empty card space act as the drag handle; bare drag
+    // regions only fire on the element itself, so text stays selectable.
+    <div className="popup" data-tauri-drag-region>
+      <div className="popup-body" ref={rootRef} data-tauri-drag-region>
         {captureError ? (
           <>
-            <header className="popup-header">
+            <header className="popup-header" data-tauri-drag-region="deep">
               <span className="brand">Translate On Air</span>
               <HeaderActions />
             </header>
@@ -161,7 +163,7 @@ export function PopupView() {
           </>
         ) : (
           <>
-            <header className="popup-header">
+            <header className="popup-header" data-tauri-drag-region="deep">
               <LangSwitcher value={targetLang} onChange={onLangChange} />
               <HeaderActions />
             </header>

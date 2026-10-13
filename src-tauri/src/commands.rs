@@ -24,13 +24,14 @@ pub async fn translate(
     let text = text.trim().to_string();
     let mode = ProviderMode::from_str(&settings::provider_mode(&app));
     let model = settings::model(&app);
+    let effort = settings::reasoning_effort(&app);
     let claude = cache.claude_info();
     let has_key = keychain::has_key();
 
     let provider = providers::resolve(mode, claude, has_key).map_err(|e| e.code().to_string())?;
 
     let sys = providers::prompt::system_prompt(&target_lang);
-    let result = run_provider(provider, &model, &sys, &text).await?;
+    let result = run_provider(provider, &model, &effort, &sys, &text).await?;
 
     // Output furigana only when translating INTO Japanese.
     let segments = if target_lang == "ja" {
@@ -67,13 +68,14 @@ pub async fn translate_reply(
     let reply = reply.trim().to_string();
     let mode = ProviderMode::from_str(&settings::provider_mode(&app));
     let model = settings::model(&app);
+    let effort = settings::reasoning_effort(&app);
     let claude = cache.claude_info();
     let has_key = keychain::has_key();
 
     let provider = providers::resolve(mode, claude, has_key).map_err(|e| e.code().to_string())?;
 
     let sys = providers::prompt::reply_prompt(&original_source, &original_translation, &reply_lang);
-    let result = run_provider(provider, &model, &sys, &reply).await?;
+    let result = run_provider(provider, &model, &effort, &sys, &reply).await?;
 
     // The reply's OUTPUT is in the original message's language → furigana when
     // that original was Japanese.
@@ -99,13 +101,14 @@ pub async fn translate_reply(
 async fn run_provider(
     provider: providers::Provider,
     model: &str,
+    effort: &str,
     sys: &str,
     text: &str,
 ) -> Result<Translated, String> {
     match provider {
         providers::Provider::OpenAi => {
             let key = keychain::get_key().ok_or_else(|| "not-configured".to_string())?;
-            providers::openai::translate(&key, model, sys, text).await
+            providers::openai::translate(&key, model, effort, sys, text).await
         }
         providers::Provider::ClaudeCli(info) => {
             providers::claude_cli::translate(&info, sys, text).await

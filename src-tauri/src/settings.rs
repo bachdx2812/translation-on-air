@@ -14,12 +14,14 @@ const K_HOTKEY: &str = "hotkey";
 const K_TARGET_LANG: &str = "target_lang";
 const K_PROVIDER_MODE: &str = "provider_mode";
 const K_MODEL: &str = "openai_model";
+const K_REASONING_EFFORT: &str = "openai_reasoning_effort";
 const K_SELECTION_BUBBLE: &str = "selection_bubble";
 
 pub const DEFAULT_HOTKEY: &str = "Cmd+Shift+T";
 const DEFAULT_TARGET_LANG: &str = "vi";
 const DEFAULT_PROVIDER_MODE: &str = "auto";
 const DEFAULT_MODEL: &str = "gpt-4o-mini";
+const DEFAULT_REASONING_EFFORT: &str = "none";
 const DEFAULT_SELECTION_BUBBLE: bool = true;
 
 fn read_string(app: &AppHandle, key: &str, default: &str) -> String {
@@ -42,6 +44,9 @@ pub fn provider_mode(app: &AppHandle) -> String {
 pub fn model(app: &AppHandle) -> String {
     read_string(app, K_MODEL, DEFAULT_MODEL)
 }
+pub fn reasoning_effort(app: &AppHandle) -> String {
+    read_string(app, K_REASONING_EFFORT, DEFAULT_REASONING_EFFORT)
+}
 pub fn selection_bubble(app: &AppHandle) -> bool {
     app.store(STORE_FILE)
         .ok()
@@ -58,6 +63,7 @@ pub struct Settings {
     target_lang: String,
     provider_mode: String,
     openai_model: String,
+    openai_reasoning_effort: String,
     has_openai_key: bool,
     selection_bubble: bool,
 }
@@ -68,6 +74,7 @@ pub struct SettingsPatch {
     target_lang: Option<String>,
     provider_mode: Option<String>,
     openai_model: Option<String>,
+    openai_reasoning_effort: Option<String>,
     selection_bubble: Option<bool>,
 }
 
@@ -78,6 +85,7 @@ pub fn get_settings(app: AppHandle) -> Settings {
         target_lang: target_lang(&app),
         provider_mode: provider_mode(&app),
         openai_model: model(&app),
+        openai_reasoning_effort: reasoning_effort(&app),
         has_openai_key: crate::keychain::has_key(),
         selection_bubble: selection_bubble(&app),
     }
@@ -101,6 +109,9 @@ pub fn set_settings(
     if let Some(v) = patch.openai_model {
         store.set(K_MODEL, json!(v));
         provider_affecting = true;
+    }
+    if let Some(v) = patch.openai_reasoning_effort {
+        store.set(K_REASONING_EFFORT, json!(v));
     }
     if let Some(v) = patch.selection_bubble {
         store.set(K_SELECTION_BUBBLE, json!(v));

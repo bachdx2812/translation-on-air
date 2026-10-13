@@ -29,11 +29,15 @@ export type ProviderStatus = {
 
 export type ProviderMode = "auto" | "openai" | "claude";
 
+/** "default" omits `reasoning_effort` so the model uses its own default. */
+export type ReasoningEffort = "none" | "low" | "medium" | "high" | "xhigh" | "default";
+
 export type Settings = {
   hotkey: string;
   target_lang: TargetLang;
   provider_mode: ProviderMode;
   openai_model: string;
+  openai_reasoning_effort: ReasoningEffort;
   has_openai_key: boolean;
   selection_bubble: boolean;
 };
@@ -42,5 +46,6 @@ export type SettingsPatch = Partial<{
   target_lang: TargetLang;
   provider_mode: ProviderMode;
   openai_model: string;
+  openai_reasoning_effort: ReasoningEffort;
   selection_bubble: boolean;
 }>;
