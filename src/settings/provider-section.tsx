@@ -5,13 +5,28 @@ import {
   setOpenAiKey,
   setSettings,
 } from "../shared/tauri-api";
-import type { ProviderMode, ProviderStatus, Settings } from "../shared/types";
+import type {
+  ProviderMode,
+  ProviderStatus,
+  ReasoningEffort,
+  Settings,
+} from "../shared/types";
 
 const MODES: ProviderMode[] = ["auto", "openai", "claude"];
 const MODE_LABELS: Record<ProviderMode, string> = {
   auto: "Auto",
   openai: "OpenAI",
   claude: "Claude",
+};
+
+const EFFORTS: ReasoningEffort[] = ["none", "low", "medium", "high", "xhigh", "default"];
+const EFFORT_LABELS: Record<ReasoningEffort, string> = {
+  none: "None (fastest)",
+  low: "Low",
+  medium: "Medium",
+  high: "High",
+  xhigh: "Extra high",
+  default: "Model default",
 };
 
 function statusLine(s: ProviderStatus | null): string {
@@ -21,10 +36,11 @@ function statusLine(s: ProviderStatus | null): string {
   return "No provider configured.";
 }
 
-/** Provider mode + OpenAI key management + model + detection status. */
+/** Provider mode + OpenAI key management + model + reasoning effort + detection status. */
 export function ProviderSection({ initial }: { initial: Settings }) {
   const [mode, setMode] = useState<ProviderMode>(initial.provider_mode);
   const [model, setModel] = useState(initial.openai_model);
+  const [effort, setEffort] = useState<ReasoningEffort>(initial.openai_reasoning_effort);
   const [hasKey, setHasKey] = useState(initial.has_openai_key);
   const [keyInput, setKeyInput] = useState("");
   const [status, setStatus] = useState<ProviderStatus | null>(null);
@@ -37,6 +53,10 @@ export function ProviderSection({ initial }: { initial: Settings }) {
   const onMode = (m: ProviderMode) => {
     setMode(m);
     void setSettings({ provider_mode: m }).then(redetect);
+  };
+  const onEffort = (e: ReasoningEffort) => {
+    setEffort(e);
+    void setSettings({ openai_reasoning_effort: e });
   };
   const saveKey = async () => {
     if (!keyInput) return;
@@ -105,6 +125,23 @@ export function ProviderSection({ initial }: { initial: Settings }) {
         onChange={(e) => setModel(e.target.value)}
         onBlur={() => void setSettings({ openai_model: model })}
       />
+
+      <label htmlFor="effort">OpenAI reasoning effort</label>
+      <select
+        id="effort"
+        value={effort}
+        onChange={(e) => onEffort(e.target.value as ReasoningEffort)}
+      >
+        {EFFORTS.map((e) => (
+          <option key={e} value={e}>
+            {EFFORT_LABELS[e]}
+          </option>
+        ))}
+      </select>
+      <p className="hint">
+        Higher levels think longer before answering and slow translation down. If the model
+        does not support the chosen level, the model default is used.
+      </p>
     </section>
   );
 }

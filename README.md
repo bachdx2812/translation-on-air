@@ -36,7 +36,7 @@ Then grant Accessibility:
    press `Esc` to hide.
 
 Open **Settings** (⚙ in the popup, or the menubar tray) to change the hotkey,
-default language, provider, OpenAI key, and model.
+default language, provider, OpenAI key, model, and reasoning effort (default `none`, fastest).
 
 ## Development
 
