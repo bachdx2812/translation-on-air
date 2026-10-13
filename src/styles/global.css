@@ -1,8 +1,20 @@
 :root {
-  --accent: #4f7cff;
   color-scheme: light dark;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+
+  --accent: light-dark(#2f6bf2, #4a8cff);
+  --accent-text: #ffffff;
+  --text: light-dark(#1d1d1f, #f5f5f7);
+  --text-2: light-dark(#5f5f66, #a4a4ab);
+  --text-3: light-dark(#8e8e94, #7d7d85);
+  --separator: light-dark(rgba(0, 0, 0, 0.1), rgba(255, 255, 255, 0.1));
+  --border: light-dark(rgba(0, 0, 0, 0.14), rgba(255, 255, 255, 0.14));
+  --fill: light-dark(rgba(0, 0, 0, 0.05), rgba(255, 255, 255, 0.07));
+  --fill-hover: light-dark(rgba(0, 0, 0, 0.09), rgba(255, 255, 255, 0.12));
+  --success: light-dark(#1d8f4e, #3fcf6f);
+  --danger: light-dark(#d23b30, #ff6961);
 }
 
 * {
@@ -14,4 +26,28 @@ html,
 body {
   margin: 0;
   background: transparent;
+  color: var(--text);
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+/* Keycap for shortcuts (⌃ ⇧ T). */
+kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.6em;
+  height: 1.6em;
+  padding: 0 0.35em;
+  border-radius: 5px;
+  background: light-dark(#ffffff, rgba(255, 255, 255, 0.1));
+  box-shadow:
+    inset 0 -1px 0 var(--border),
+    0 0 0 0.5px var(--border);
+  font-family: inherit;
+  font-size: 0.85em;
+  font-weight: 600;
 }

@@ -1,5 +1,6 @@
-/* The bubble window is tiny (104×40) and transparent; center the pill in it. */
-#root {
+/* The bubble window is tiny (104×40) and transparent; center the pill in it.
+   Scoped to the bubble view: every window shares one stylesheet bundle. */
+html[data-view="bubble"] #root {
   width: 100vw;
   height: 100vh;
   display: flex;
@@ -13,26 +14,30 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: 32px;
-  padding: 0 14px;
-  border-radius: 16px;
-  border: 0.5px solid light-dark(rgba(0, 0, 0, 0.16), rgba(255, 255, 255, 0.18));
+  height: 30px;
+  padding: 0 13px 0 11px;
+  border-radius: 15px;
+  border: 0.5px solid var(--border);
   /* Opaque, no backdrop-filter (it leaks a square behind the rounded pill). */
-  background: light-dark(#ffffff, #2a2a2e);
-  color: light-dark(#1c1c1e, #f2f2f7);
+  background: light-dark(#ffffff, #2c2c30);
+  color: var(--text);
   font-size: 0.85rem;
   font-weight: 600;
   line-height: 1;
   cursor: pointer;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.26);
-  transition: transform 0.08s ease, box-shadow 0.12s ease;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
+  transition:
+    transform 0.08s ease,
+    box-shadow 0.12s ease;
 }
 .bubble-btn:hover {
-  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.32);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
 }
 .bubble-btn:active {
   transform: scale(0.96);
 }
-.bubble-glyph {
-  font-size: 0.95rem;
+.bubble-btn svg {
+  width: 15px;
+  height: 15px;
+  color: var(--accent);
 }

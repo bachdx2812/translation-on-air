@@ -16,6 +16,7 @@ const K_PROVIDER_MODE: &str = "provider_mode";
 const K_MODEL: &str = "openai_model";
 const K_REASONING_EFFORT: &str = "openai_reasoning_effort";
 const K_SELECTION_BUBBLE: &str = "selection_bubble";
+const K_SOURCE_FURIGANA: &str = "source_furigana";
 
 pub const DEFAULT_HOTKEY: &str = "Cmd+Shift+T";
 const DEFAULT_TARGET_LANG: &str = "vi";
@@ -23,6 +24,15 @@ const DEFAULT_PROVIDER_MODE: &str = "auto";
 const DEFAULT_MODEL: &str = "gpt-4o-mini";
 const DEFAULT_REASONING_EFFORT: &str = "none";
 const DEFAULT_SELECTION_BUBBLE: bool = true;
+const DEFAULT_SOURCE_FURIGANA: bool = false;
+
+fn read_bool(app: &AppHandle, key: &str, default: bool) -> bool {
+    app.store(STORE_FILE)
+        .ok()
+        .and_then(|s| s.get(key))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(default)
+}
 
 fn read_string(app: &AppHandle, key: &str, default: &str) -> String {
     app.store(STORE_FILE)
@@ -48,11 +58,10 @@ pub fn reasoning_effort(app: &AppHandle) -> String {
     read_string(app, K_REASONING_EFFORT, DEFAULT_REASONING_EFFORT)
 }
 pub fn selection_bubble(app: &AppHandle) -> bool {
-    app.store(STORE_FILE)
-        .ok()
-        .and_then(|s| s.get(K_SELECTION_BUBBLE))
-        .and_then(|v| v.as_bool())
-        .unwrap_or(DEFAULT_SELECTION_BUBBLE)
+    read_bool(app, K_SELECTION_BUBBLE, DEFAULT_SELECTION_BUBBLE)
+}
+pub fn source_furigana(app: &AppHandle) -> bool {
+    read_bool(app, K_SOURCE_FURIGANA, DEFAULT_SOURCE_FURIGANA)
 }
 
 /// Full settings for the settings window. `has_openai_key` is derived from the
@@ -66,6 +75,7 @@ pub struct Settings {
     openai_reasoning_effort: String,
     has_openai_key: bool,
     selection_bubble: bool,
+    source_furigana: bool,
 }
 
 /// Partial update from the settings UI (hotkey is handled by `set_hotkey`).
@@ -76,6 +86,7 @@ pub struct SettingsPatch {
     openai_model: Option<String>,
     openai_reasoning_effort: Option<String>,
     selection_bubble: Option<bool>,
+    source_furigana: Option<bool>,
 }
 
 #[tauri::command]
@@ -88,6 +99,7 @@ pub fn get_settings(app: AppHandle) -> Settings {
         openai_reasoning_effort: reasoning_effort(&app),
         has_openai_key: crate::keychain::has_key(),
         selection_bubble: selection_bubble(&app),
+        source_furigana: source_furigana(&app),
     }
 }
 
@@ -115,7 +127,10 @@ pub fn set_settings(
     }
     if let Some(v) = patch.selection_bubble {
         store.set(K_SELECTION_BUBBLE, json!(v));
-        crate::selection::set_enabled(v);
+        crate::selection::set_enabled(&app, v);
+    }
+    if let Some(v) = patch.source_furigana {
+        store.set(K_SOURCE_FURIGANA, json!(v));
     }
     store.save().map_err(|e| e.to_string())?;
     if provider_affecting {

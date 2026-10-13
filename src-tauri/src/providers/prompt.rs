@@ -40,9 +40,10 @@ are each their own token. For each token, 'surface' = the token text and 'readin
 in HIRAGANA only if the token contains kanji, otherwise an empty string. Never romanize.";
 
 /// Build the system prompt for a target language. `segments` carries furigana
-/// only when the output is Japanese; `source_segments` carries furigana whenever
-/// the user's source text is Japanese (so reading JA→VI still shows furigana).
-pub fn system_prompt(target_lang: &str) -> String {
+/// only when the output is Japanese; `source_segments` carries furigana of a
+/// Japanese source only when `source_furigana` is on, since generating it often
+/// costs more output tokens than the translation itself.
+pub fn system_prompt(target_lang: &str, source_furigana: bool) -> String {
     let (lang_name, output_is_ja) = match target_lang {
         "ja" => ("Japanese", true),
         "en" => ("English", false),
@@ -53,15 +54,24 @@ pub fn system_prompt(target_lang: &str) -> String {
     } else {
         "'segments' = [] (the output is not Japanese)."
     };
+    let source_rule = if source_furigana {
+        "'source_segments' = furigana tokens of the SOURCE text (the user's input) if it contains \
+Japanese, otherwise []."
+    } else {
+        "'source_segments' = []."
+    };
+    let rules = if output_is_ja || source_furigana {
+        RULES
+    } else {
+        ""
+    };
     format!(
-        "You are a translation engine. Translate the user's text into natural {lang}. Return ONLY JSON \
-matching the schema (no markdown fences). 'translation' = the full {lang} translation. {seg} \
-'source_segments' = furigana tokens of the SOURCE text (the user's input) if it contains Japanese, \
-otherwise []. {rules}",
-        lang = lang_name,
-        seg = segments_rule,
-        rules = RULES
+        "You are a translation engine. Translate the user's text into natural {lang_name}. Return ONLY \
+JSON matching the schema (no markdown fences). 'translation' = the full {lang_name} translation. \
+{segments_rule} {source_rule} {rules}"
     )
+    .trim_end()
+    .to_string()
 }
 
 /// Build the system prompt for translating a REPLY back into the original
@@ -89,4 +99,30 @@ otherwise []. 'source_segments' = []. {rules}",
         reply_lang = reply_lang_name,
         rules = RULES
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::system_prompt;
+
+    #[test]
+    fn source_furigana_off_requests_empty_source_segments() {
+        let p = system_prompt("vi", false);
+        assert!(p.contains("'source_segments' = []."));
+        assert!(!p.contains("Tokenization rule"));
+    }
+
+    #[test]
+    fn source_furigana_on_requests_source_tokens() {
+        let p = system_prompt("vi", true);
+        assert!(p.contains("furigana tokens of the SOURCE text"));
+        assert!(p.contains("Tokenization rule"));
+    }
+
+    #[test]
+    fn japanese_output_keeps_tokenization_rules() {
+        let p = system_prompt("ja", false);
+        assert!(p.contains("'segments' = furigana tokens of 'translation'"));
+        assert!(p.contains("Tokenization rule"));
+    }
 }

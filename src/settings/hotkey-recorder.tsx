@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { setHotkey } from "../shared/tauri-api";
+import { hotkeyKeys } from "../shared/hotkey";
 
 /** Map a KeyboardEvent.code to an accelerator key token (letters/digits/F-keys). */
 function keyFromCode(code: string): string | null {
@@ -55,25 +56,27 @@ export function HotkeyRecorder({ initial }: { initial: string }) {
 
   const message =
     error === "invalid-accelerator"
-      ? "Invalid combination — use ≥1 modifier + a letter/number/F-key."
+      ? "Tổ hợp không hợp lệ — cần ít nhất 1 phím ⌘ ⌃ ⌥ ⇧ và 1 chữ, số hoặc phím F."
       : error === "register-failed"
-        ? "Couldn't register (maybe already in use). Previous hotkey kept."
+        ? "Không đăng ký được (có thể app khác đang dùng). Vẫn giữ phím tắt cũ."
         : null;
 
   return (
-    <section className="setting-section">
-      <label>Global hotkey</label>
+    <>
       <button
         type="button"
-        className="hotkey-field"
+        className={recording ? "hotkey-field recording" : "hotkey-field"}
+        title={recording ? "Esc để huỷ" : "Bấm để đổi phím tắt"}
         onClick={() => {
           setRecording(true);
           setError(null);
         }}
       >
-        {recording ? "Recording… press combo (Esc to cancel)" : accel}
+        {recording
+          ? "Bấm tổ hợp phím…"
+          : hotkeyKeys(accel).map((k) => <kbd key={k}>{k}</kbd>)}
       </button>
       {message && <p className="err">{message}</p>}
-    </section>
+    </>
   );
 }

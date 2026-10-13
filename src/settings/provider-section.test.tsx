@@ -19,22 +19,25 @@ const initial: Settings = {
   openai_reasoning_effort: "none",
   has_openai_key: true,
   selection_bubble: true,
+  source_furigana: false,
 };
 
 describe("ProviderSection reasoning effort", () => {
-  beforeEach(() => vi.mocked(setSettings).mockClear());
+  beforeEach(() => {
+    vi.mocked(setSettings).mockClear();
+  });
 
   // No vitest `globals` → RTL auto-cleanup is off; clean up renders explicitly.
   afterEach(cleanup);
 
   it("shows the saved effort", () => {
     const { getByLabelText } = render(<ProviderSection initial={initial} />);
-    expect((getByLabelText("OpenAI reasoning effort") as HTMLSelectElement).value).toBe("none");
+    expect((getByLabelText("Mức suy luận") as HTMLSelectElement).value).toBe("none");
   });
 
   it("persists the chosen effort", () => {
     const { getByLabelText } = render(<ProviderSection initial={initial} />);
-    const select = getByLabelText("OpenAI reasoning effort") as HTMLSelectElement;
+    const select = getByLabelText("Mức suy luận") as HTMLSelectElement;
 
     fireEvent.change(select, { target: { value: "low" } });
 

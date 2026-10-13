@@ -1,5 +1,6 @@
 //! OpenAI provider. Calls chat completions with a strict json_schema response
-//! format so the model output always matches the furigana schema.
+//! format so the model output always matches the furigana schema, streaming the
+//! response so the translation can be shown while the rest is still generating.
 
 use super::prompt;
 use super::types::{ProviderError, Translated};
@@ -35,18 +36,22 @@ fn rejected_efforts() -> &'static Mutex<HashSet<(String, String)>> {
 /// `effort` is sent as `reasoning_effort`. Non-reasoning models (gpt-4o-mini)
 /// reject the parameter and some models reject specific levels, so a 400 about
 /// it falls back to one retry without the parameter.
+///
+/// `on_partial` receives the translation decoded so far each time it grows.
 pub async fn translate(
     key: &str,
     model: &str,
     effort: &str,
     sys: &str,
     text: &str,
+    on_partial: &(dyn Fn(&str) + Send + Sync),
 ) -> Result<Translated, ProviderError> {
     let schema: serde_json::Value =
         serde_json::from_str(prompt::FURIGANA_SCHEMA).map_err(|_| ProviderError::BadResponse)?;
 
     let body = json!({
         "model": model,
+        "stream": true,
         "messages": [
             { "role": "system", "content": sys },
             { "role": "user", "content": text }
@@ -61,7 +66,7 @@ pub async fn translate(
     let send_effort =
         effort != MODEL_DEFAULT_EFFORT && !rejected_efforts().lock().unwrap().contains(&pair);
 
-    let resp = if send_effort {
+    let mut resp = if send_effort {
         let mut with_effort = body.clone();
         with_effort["reasoning_effort"] = json!(effort);
         let resp = send(key, &with_effort).await?;
@@ -87,11 +92,35 @@ pub async fn translate(
         _ => return Err(ProviderError::BadResponse),
     }
 
-    let v: serde_json::Value = resp.json().await.map_err(|_| ProviderError::BadResponse)?;
-    let content = v["choices"][0]["message"]["content"]
-        .as_str()
-        .ok_or(ProviderError::BadResponse)?;
-    serde_json::from_str(content).map_err(|_| ProviderError::BadResponse)
+    let mut lines = SseLines::default();
+    let mut content = String::new();
+    let mut translation_done = false;
+    let mut sent_len = 0;
+    while let Some(chunk) = resp.chunk().await.map_err(transport_error)? {
+        for data in lines.push(&chunk) {
+            if data == "[DONE]" {
+                continue;
+            }
+            let event: serde_json::Value =
+                serde_json::from_str(&data).map_err(|_| ProviderError::BadResponse)?;
+            let Some(delta) = event["choices"][0]["delta"]["content"].as_str() else {
+                continue;
+            };
+            content.push_str(delta);
+            // Once the translation string closes, only furigana arrays follow.
+            if !translation_done {
+                if let Some((partial, done)) = partial_translation(&content) {
+                    translation_done = done;
+                    // Skip chunks that added nothing visible (e.g. half an escape).
+                    if partial.len() > sent_len {
+                        sent_len = partial.len();
+                        on_partial(&partial);
+                    }
+                }
+            }
+        }
+    }
+    serde_json::from_str(&content).map_err(|_| ProviderError::BadResponse)
 }
 
 async fn send(key: &str, body: &serde_json::Value) -> Result<reqwest::Response, ProviderError> {
@@ -101,13 +130,76 @@ async fn send(key: &str, body: &serde_json::Value) -> Result<reqwest::Response, 
         .json(body)
         .send()
         .await
-        .map_err(|e| {
-            if e.is_timeout() {
-                ProviderError::Timeout
-            } else {
-                ProviderError::Unavailable
+        .map_err(transport_error)
+}
+
+fn transport_error(e: reqwest::Error) -> ProviderError {
+    if e.is_timeout() {
+        ProviderError::Timeout
+    } else {
+        ProviderError::Unavailable
+    }
+}
+
+/// Splits a server-sent-events byte stream into `data:` payloads. Bytes are
+/// buffered until a full line arrives, so a UTF-8 character split across
+/// network chunks is never decoded in halves.
+#[derive(Default)]
+struct SseLines {
+    buf: Vec<u8>,
+}
+
+impl SseLines {
+    fn push(&mut self, chunk: &[u8]) -> Vec<String> {
+        self.buf.extend_from_slice(chunk);
+        let mut out = Vec::new();
+        while let Some(nl) = self.buf.iter().position(|&b| b == b'\n') {
+            let line: Vec<u8> = self.buf.drain(..=nl).collect();
+            let line = String::from_utf8_lossy(&line);
+            if let Some(data) = line.trim_end().strip_prefix("data:") {
+                out.push(data.trim_start().to_string());
             }
-        })
+        }
+        out
+    }
+}
+
+/// The `translation` value of a possibly-truncated JSON object, plus whether
+/// its closing quote has arrived. None before the value starts, or while its
+/// tail is an escape sequence that has not fully arrived yet.
+fn partial_translation(json: &str) -> Option<(String, bool)> {
+    let rest = json.split_once("\"translation\"")?.1.trim_start();
+    let value = rest.strip_prefix(':')?.trim_start().strip_prefix('"')?;
+
+    let mut escaped = false;
+    let mut last_escape = None;
+    for (i, c) in value.char_indices() {
+        if escaped {
+            escaped = false;
+            continue;
+        }
+        match c {
+            '\\' => {
+                escaped = true;
+                last_escape = Some(i);
+            }
+            '"' => return decode_json_string(&value[..i]).map(|s| (s, true)),
+            _ => {}
+        }
+    }
+    let end = match last_escape {
+        Some(i)
+            if &value[i..] == "\\" || (value[i..].starts_with("\\u") && value.len() - i < 6) =>
+        {
+            i
+        }
+        _ => value.len(),
+    };
+    decode_json_string(&value[..end]).map(|s| (s, false))
+}
+
+fn decode_json_string(raw: &str) -> Option<String> {
+    serde_json::from_str(&format!("\"{raw}\"")).ok()
 }
 
 /// True when a 400 body blames `reasoning_effort`: either the whole parameter
@@ -123,7 +215,60 @@ fn rejects_reasoning_effort(body: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::rejects_reasoning_effort;
+    use super::{partial_translation, rejects_reasoning_effort, SseLines};
+
+    #[test]
+    fn sse_lines_buffer_split_utf8_and_partial_lines() {
+        let mut lines = SseLines::default();
+        let event = "data: {\"a\":\"問\"}\n\n".as_bytes();
+        // Split inside the 3-byte UTF-8 sequence of 問.
+        let cut = event.iter().position(|&b| b >= 0x80).unwrap() + 1;
+        assert!(lines.push(&event[..cut]).is_empty());
+        assert_eq!(lines.push(&event[cut..]), vec![r#"{"a":"問"}"#.to_string()]);
+        assert_eq!(
+            lines.push(b": keep-alive\ndata: [DONE]\n"),
+            vec!["[DONE]".to_string()]
+        );
+    }
+
+    #[test]
+    fn partial_translation_waits_for_the_value() {
+        assert_eq!(partial_translation(""), None);
+        assert_eq!(partial_translation(r#"{"transl"#), None);
+        assert_eq!(partial_translation(r#"{"translation":"#), None);
+    }
+
+    #[test]
+    fn partial_translation_decodes_growing_and_closed_values() {
+        assert_eq!(
+            partial_translation(r#"{"translation":"Vâng, chúng"#),
+            Some(("Vâng, chúng".to_string(), false))
+        );
+        assert_eq!(
+            partial_translation(r#"{"translation":"Dòng 1\nDòng \"2\"","segments":[{"#),
+            Some(("Dòng 1\nDòng \"2\"".to_string(), true))
+        );
+    }
+
+    #[test]
+    fn partial_translation_holds_back_half_received_escapes() {
+        assert_eq!(
+            partial_translation(r#"{"translation":"a\"#),
+            Some(("a".to_string(), false))
+        );
+        assert_eq!(
+            partial_translation(r#"{"translation":"a\u00"#),
+            Some(("a".to_string(), false))
+        );
+        assert_eq!(
+            partial_translation(r#"{"translation":"a\\"#),
+            Some(("a\\".to_string(), false))
+        );
+        assert_eq!(
+            partial_translation(r#"{"translation":"a\u00e9"#),
+            Some(("aé".to_string(), false))
+        );
+    }
 
     #[test]
     fn detects_unrecognized_parameter() {

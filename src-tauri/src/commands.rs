@@ -3,6 +3,7 @@
 
 use crate::providers::{self, types::Translated, ProviderMode};
 use crate::{keychain, settings};
+use tauri::ipc::Channel;
 use tauri::State;
 
 #[derive(serde::Serialize)]
@@ -20,6 +21,7 @@ pub async fn translate(
     cache: State<'_, providers::ProviderCache>,
     text: String,
     target_lang: String,
+    on_partial: Channel<String>,
 ) -> Result<Translated, String> {
     let text = text.trim().to_string();
     let mode = ProviderMode::from_str(&settings::provider_mode(&app));
@@ -30,8 +32,9 @@ pub async fn translate(
 
     let provider = providers::resolve(mode, claude, has_key).map_err(|e| e.code().to_string())?;
 
-    let sys = providers::prompt::system_prompt(&target_lang);
-    let result = run_provider(provider, &model, &effort, &sys, &text).await?;
+    let source_furigana = settings::source_furigana(&app);
+    let sys = providers::prompt::system_prompt(&target_lang, source_furigana);
+    let result = run_provider(provider, &model, &effort, &sys, &text, &on_partial).await?;
 
     // Output furigana only when translating INTO Japanese.
     let segments = if target_lang == "ja" {
@@ -39,8 +42,8 @@ pub async fn translate(
     } else {
         Vec::new()
     };
-    // Source furigana whenever the source text is Japanese (e.g. reading JA→VI).
-    let source_segments = if providers::furigana::contains_japanese(&text) {
+    // Source furigana for Japanese source text (e.g. reading JA→VI), if enabled.
+    let source_segments = if source_furigana && providers::furigana::contains_japanese(&text) {
         providers::furigana::validate_segments(&text, result.source_segments)
     } else {
         Vec::new()
@@ -64,6 +67,7 @@ pub async fn translate_reply(
     original_source: String,
     original_translation: String,
     reply_lang: String,
+    on_partial: Channel<String>,
 ) -> Result<Translated, String> {
     let reply = reply.trim().to_string();
     let mode = ProviderMode::from_str(&settings::provider_mode(&app));
@@ -75,7 +79,7 @@ pub async fn translate_reply(
     let provider = providers::resolve(mode, claude, has_key).map_err(|e| e.code().to_string())?;
 
     let sys = providers::prompt::reply_prompt(&original_source, &original_translation, &reply_lang);
-    let result = run_provider(provider, &model, &effort, &sys, &reply).await?;
+    let result = run_provider(provider, &model, &effort, &sys, &reply, &on_partial).await?;
 
     // The reply's OUTPUT is in the original message's language → furigana when
     // that original was Japanese.
@@ -98,17 +102,24 @@ pub async fn translate_reply(
 }
 
 /// Dispatch a request to the resolved provider with a caller-built system prompt.
+/// The translation streams through `on_partial` where the provider supports it
+/// (OpenAI); the Claude CLI only delivers the final result.
 async fn run_provider(
     provider: providers::Provider,
     model: &str,
     effort: &str,
     sys: &str,
     text: &str,
+    on_partial: &Channel<String>,
 ) -> Result<Translated, String> {
     match provider {
         providers::Provider::OpenAi => {
             let key = keychain::get_key().ok_or_else(|| "not-configured".to_string())?;
-            providers::openai::translate(&key, model, effort, sys, text).await
+            // A closed popup drops the channel; the request still completes.
+            let send = |partial: &str| {
+                let _ = on_partial.send(partial.to_string());
+            };
+            providers::openai::translate(&key, model, effort, sys, text, &send).await
         }
         providers::Provider::ClaudeCli(info) => {
             providers::claude_cli::translate(&info, sys, text).await

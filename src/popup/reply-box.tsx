@@ -4,12 +4,13 @@ import type { TargetLang } from "../shared/types";
 // The user types the reply in the current target language; it is translated back
 // into the source language (see translate_reply).
 const PLACEHOLDER: Record<TargetLang, string> = {
-  vi: "Nhập câu trả lời (tiếng Việt)…",
-  ja: "返信を入力（日本語）…",
-  en: "Type your reply (English)…",
+  vi: "Nhập câu trả lời bằng tiếng Việt…",
+  ja: "返信を日本語で入力…",
+  en: "Type your reply in English…",
 };
 
-/** Inline reply composer. Enter sends, Shift+Enter inserts a newline. */
+/** Inline reply composer. Enter sends, Shift+Enter inserts a newline, Esc
+ * closes the composer (not the popup). */
 export function ReplyBox({
   lang,
   onSend,
@@ -34,18 +35,23 @@ export function ReplyBox({
         placeholder={PLACEHOLDER[lang]}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => {
-          if (e.key === "Enter" && !e.shiftKey) {
+          if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
             e.preventDefault();
             submit();
+          } else if (e.key === "Escape") {
+            // Keep the popup's own Esc handler from closing the whole window.
+            e.stopPropagation();
+            onCancel();
           }
         }}
       />
       <div className="reply-actions">
-        <button className="reply-cancel" onClick={onCancel}>
-          Cancel
+        <span className="kbd-hint">↵ dịch · ⇧↵ xuống dòng · esc huỷ</span>
+        <button className="chip" onClick={onCancel}>
+          Huỷ
         </button>
-        <button className="reply-send" onClick={submit} disabled={!text.trim()}>
-          Send
+        <button className="chip chip-primary" onClick={submit} disabled={!text.trim()}>
+          Dịch câu trả lời
         </button>
       </div>
     </div>
