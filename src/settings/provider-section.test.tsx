@@ -20,6 +20,7 @@ const initial: Settings = {
   has_openai_key: true,
   selection_bubble: true,
   source_furigana: false,
+  launch_at_login: false,
 };
 
 describe("ProviderSection reasoning effort", () => {

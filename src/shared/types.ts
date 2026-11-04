@@ -41,6 +41,7 @@ export type Settings = {
   has_openai_key: boolean;
   selection_bubble: boolean;
   source_furigana: boolean;
+  launch_at_login: boolean;
 };
 
 export type SettingsPatch = Partial<{
@@ -50,4 +51,5 @@ export type SettingsPatch = Partial<{
   openai_reasoning_effort: ReasoningEffort;
   selection_bubble: boolean;
   source_furigana: boolean;
+  launch_at_login: boolean;
 }>;

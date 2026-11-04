@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, fireEvent, cleanup } from "@testing-library/react";
+import { render, fireEvent, cleanup, waitFor } from "@testing-library/react";
 import { GeneralSection } from "./general-section";
 import { setSettings } from "../shared/tauri-api";
 import type { Settings } from "../shared/types";
@@ -18,9 +18,10 @@ const initial: Settings = {
   has_openai_key: true,
   selection_bubble: true,
   source_furigana: false,
+  launch_at_login: false,
 };
 
-describe("GeneralSection source furigana", () => {
+describe("GeneralSection", () => {
   beforeEach(() => {
     vi.mocked(setSettings).mockClear();
   });
@@ -37,5 +38,25 @@ describe("GeneralSection source furigana", () => {
 
     expect(box.checked).toBe(true);
     expect(setSettings).toHaveBeenCalledWith({ source_furigana: true });
+  });
+
+  it("persists turning launch at login on", () => {
+    const { getByLabelText } = render(<GeneralSection initial={initial} />);
+    const box = getByLabelText("Mở cùng macOS") as HTMLInputElement;
+
+    fireEvent.click(box);
+
+    expect(box.checked).toBe(true);
+    expect(setSettings).toHaveBeenCalledWith({ launch_at_login: true });
+  });
+
+  it("switches launch at login back off when saving fails", async () => {
+    vi.mocked(setSettings).mockRejectedValueOnce("Operation not permitted");
+    const { getByLabelText } = render(<GeneralSection initial={initial} />);
+    const box = getByLabelText("Mở cùng macOS") as HTMLInputElement;
+
+    fireEvent.click(box);
+
+    await waitFor(() => expect(box.checked).toBe(false));
   });
 });

@@ -76,6 +76,7 @@ pub struct Settings {
     has_openai_key: bool,
     selection_bubble: bool,
     source_furigana: bool,
+    launch_at_login: bool,
 }
 
 /// Partial update from the settings UI (hotkey is handled by `set_hotkey`).
@@ -87,6 +88,7 @@ pub struct SettingsPatch {
     openai_reasoning_effort: Option<String>,
     selection_bubble: Option<bool>,
     source_furigana: Option<bool>,
+    launch_at_login: Option<bool>,
 }
 
 #[tauri::command]
@@ -100,6 +102,7 @@ pub fn get_settings(app: AppHandle) -> Settings {
         has_openai_key: crate::keychain::has_key(),
         selection_bubble: selection_bubble(&app),
         source_furigana: source_furigana(&app),
+        launch_at_login: crate::autostart::is_enabled(&app),
     }
 }
 
@@ -109,6 +112,10 @@ pub fn set_settings(
     cache: State<'_, ProviderCache>,
     patch: SettingsPatch,
 ) -> Result<(), String> {
+    // Lives outside the store: the LaunchAgent file itself is the setting.
+    if let Some(v) = patch.launch_at_login {
+        crate::autostart::set_enabled(&app, v).map_err(|e| e.to_string())?;
+    }
     let store = app.store(STORE_FILE).map_err(|e| e.to_string())?;
     let mut provider_affecting = false;
     if let Some(v) = patch.target_lang {
