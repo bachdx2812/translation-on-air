@@ -89,6 +89,7 @@ mod tests {
         ClaudeInfo {
             path: std::path::PathBuf::from("/x/claude"),
             supports_json_schema: true,
+            supports_safe_mode: true,
         }
     }
 
