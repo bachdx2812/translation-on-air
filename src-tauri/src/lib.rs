@@ -10,6 +10,7 @@ mod selection;
 mod services;
 mod settings;
 mod tray;
+mod updates;
 mod windows;
 
 use tauri::Manager;
@@ -36,6 +37,7 @@ pub fn run() {
                 .build(),
         )
         .manage(providers::ProviderCache::default())
+        .manage(updates::UpdateState::default())
         .invoke_handler(tauri::generate_handler![
             windows::show_popup,
             windows::hide_popup,
@@ -56,6 +58,9 @@ pub fn run() {
             settings::get_settings,
             settings::set_settings,
             settings::set_hotkey,
+            updates::update_status,
+            updates::check_for_update,
+            updates::open_update_page,
         ])
         .on_window_event(|window, event| match event {
             // Hide the popup on close instead of destroying it, so its webview
@@ -82,6 +87,7 @@ pub fn run() {
 
             autostart::refresh(app.handle());
             tray::create(app.handle())?;
+            updates::start_background_checks(app.handle());
             hotkey::register_from_settings(app.handle())?;
             // Right-click → Services → Translate (Info.plist NSServices entry).
             #[cfg(target_os = "macos")]

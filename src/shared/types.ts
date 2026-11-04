@@ -55,3 +55,13 @@ export type SettingsPatch = Partial<{
   source_furigana: boolean;
   launch_at_login: boolean;
 }>;
+
+/** Last update check (see src-tauri/src/updates.rs). */
+export type UpdateStatus = {
+  current: string;
+  /** Newest released version; null until a check succeeded. */
+  latest: string | null;
+  available: boolean;
+  /** "network", "http-<code>" or "bad-response" when the last check failed. */
+  error: string | null;
+};

@@ -1,5 +1,12 @@
 import { Channel, invoke } from "@tauri-apps/api/core";
-import type { Translated, TargetLang, ProviderStatus, Settings, SettingsPatch } from "./types";
+import type {
+  Translated,
+  TargetLang,
+  ProviderStatus,
+  Settings,
+  SettingsPatch,
+  UpdateStatus,
+} from "./types";
 
 // Typed wrappers around Rust commands. Keeping invoke calls in one module means
 // view components never reference raw command-name strings.
@@ -46,6 +53,11 @@ export const getSettings = (): Promise<Settings> => invoke("get_settings");
 export const setSettings = (patch: SettingsPatch): Promise<void> =>
   invoke("set_settings", { patch });
 export const setHotkey = (accel: string): Promise<void> => invoke("set_hotkey", { accel });
+
+// --- Updates (checks GitHub releases; installing stays `brew upgrade`) ---
+export const updateStatus = (): Promise<UpdateStatus> => invoke("update_status");
+export const checkForUpdate = (): Promise<UpdateStatus> => invoke("check_for_update");
+export const openUpdatePage = (): Promise<void> => invoke("open_update_page");
 
 // --- Reply (translate a reply back into the source language, with context) ---
 export const translateReply = (
