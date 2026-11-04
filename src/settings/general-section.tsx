@@ -10,6 +10,7 @@ export function GeneralSection({ initial }: { initial: Settings }) {
   const [lang, setLang] = useState<TargetLang>(initial.target_lang);
   const [bubble, setBubble] = useState<boolean>(initial.selection_bubble);
   const [sourceFurigana, setSourceFurigana] = useState<boolean>(initial.source_furigana);
+  const [launchAtLogin, setLaunchAtLogin] = useState<boolean>(initial.launch_at_login);
 
   const onLang = (l: TargetLang) => {
     setLang(l);
@@ -26,6 +27,12 @@ export function GeneralSection({ initial }: { initial: Settings }) {
     void setSettings({ source_furigana: on });
   };
 
+  // Writing the login item can fail (file permissions); show the real state.
+  const onLaunchAtLogin = (on: boolean) => {
+    setLaunchAtLogin(on);
+    setSettings({ launch_at_login: on }).catch(() => setLaunchAtLogin(!on));
+  };
+
   return (
     <SettingGroup title="Chung">
       <SettingRow
@@ -38,6 +45,21 @@ export function GeneralSection({ initial }: { initial: Settings }) {
           <option value="ja">日本語 (kèm furigana)</option>
           <option value="en">English</option>
         </select>
+      </SettingRow>
+
+      <SettingRow
+        label="Mở cùng macOS"
+        htmlFor="launch-at-login"
+        hint="Tự chạy khi đăng nhập vào máy, kể cả sau khi khởi động lại."
+      >
+        <input
+          id="launch-at-login"
+          type="checkbox"
+          role="switch"
+          className="switch"
+          checked={launchAtLogin}
+          onChange={(e) => onLaunchAtLogin(e.target.checked)}
+        />
       </SettingRow>
 
       <SettingRow label="Phím tắt dịch" hint="Bôi đen text ở bất kỳ app nào rồi bấm phím tắt.">

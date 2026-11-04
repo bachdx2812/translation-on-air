@@ -1,4 +1,5 @@
 mod accessibility;
+mod autostart;
 mod capture;
 mod commands;
 mod hotkey;
@@ -79,6 +80,7 @@ pub fn run() {
             #[cfg(target_os = "macos")]
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
 
+            autostart::refresh(app.handle());
             tray::create(app.handle())?;
             hotkey::register_from_settings(app.handle())?;
             // Right-click → Services → Translate (Info.plist NSServices entry).
