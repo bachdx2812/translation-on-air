@@ -12,12 +12,16 @@ use std::time::Duration;
 /// Settings value meaning "omit `reasoning_effort`, let the model decide".
 pub const MODEL_DEFAULT_EFFORT: &str = "default";
 
-/// One reused client (connection pool + 30s timeout) for all requests.
+/// One reused client (connection pool) for all requests. No total timeout: a
+/// long text streams for minutes. Instead the request fails when connecting
+/// stalls, or when no bytes arrive for a while (that also covers the wait for
+/// the first token while a reasoning model thinks).
 fn client() -> &'static reqwest::Client {
     static CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
     CLIENT.get_or_init(|| {
         reqwest::Client::builder()
-            .timeout(Duration::from_secs(30))
+            .connect_timeout(Duration::from_secs(10))
+            .read_timeout(Duration::from_secs(120))
             .build()
             .expect("reqwest client builds")
     })

@@ -32,18 +32,23 @@ pub async fn translate(
 
     let provider = providers::resolve(mode, claude, has_key).map_err(|e| e.code().to_string())?;
 
-    let source_furigana = settings::source_furigana(&app);
-    let sys = providers::prompt::system_prompt(&target_lang, source_furigana);
+    // Output furigana only when translating INTO Japanese; source furigana for a
+    // Japanese source (e.g. reading JA→VI) only when enabled. Both are skipped
+    // for long texts (see FURIGANA_MAX_CHARS).
+    let fits = providers::prompt::furigana_fits(&text);
+    let wants_output = target_lang == "ja";
+    let wants_source =
+        settings::source_furigana(&app) && providers::furigana::contains_japanese(&text);
+    let sys =
+        providers::prompt::system_prompt(&target_lang, wants_output && fits, wants_source && fits);
     let result = run_provider(provider, &model, &effort, &sys, &text, &on_partial).await?;
 
-    // Output furigana only when translating INTO Japanese.
-    let segments = if target_lang == "ja" {
+    let segments = if wants_output && fits {
         providers::furigana::validate_segments(&result.translation, result.segments)
     } else {
         Vec::new()
     };
-    // Source furigana for Japanese source text (e.g. reading JA→VI), if enabled.
-    let source_segments = if source_furigana && providers::furigana::contains_japanese(&text) {
+    let source_segments = if wants_source && fits {
         providers::furigana::validate_segments(&text, result.source_segments)
     } else {
         Vec::new()
@@ -53,6 +58,7 @@ pub async fn translate(
         translation: result.translation,
         segments,
         source_segments,
+        furigana_skipped: !fits && (wants_output || wants_source),
     })
 }
 
@@ -78,12 +84,19 @@ pub async fn translate_reply(
 
     let provider = providers::resolve(mode, claude, has_key).map_err(|e| e.code().to_string())?;
 
-    let sys = providers::prompt::reply_prompt(&original_source, &original_translation, &reply_lang);
+    // The reply's OUTPUT is in the original message's language → furigana when
+    // that original was Japanese, unless the reply is too long for it.
+    let fits = providers::prompt::furigana_fits(&reply);
+    let wants_output = providers::furigana::contains_japanese(&original_source);
+    let sys = providers::prompt::reply_prompt(
+        &original_source,
+        &original_translation,
+        &reply_lang,
+        wants_output && fits,
+    );
     let result = run_provider(provider, &model, &effort, &sys, &reply, &on_partial).await?;
 
-    // The reply's OUTPUT is in the original message's language → furigana when
-    // that original was Japanese.
-    let segments = if providers::furigana::contains_japanese(&original_source) {
+    let segments = if wants_output && fits {
         providers::furigana::validate_segments(&result.translation, result.segments)
     } else {
         Vec::new()
@@ -98,6 +111,7 @@ pub async fn translate_reply(
         translation: result.translation,
         segments,
         source_segments,
+        furigana_skipped: !fits && wants_output,
     })
 }
 

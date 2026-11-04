@@ -39,18 +39,33 @@ tokens that EXACTLY reconcatenate to it (no gaps or overlaps). Whitespace, line 
 are each their own token. For each token, 'surface' = the token text and 'reading' = its pronunciation \
 in HIRAGANA only if the token contains kanji, otherwise an empty string. Never romanize.";
 
-/// Build the system prompt for a target language. `segments` carries furigana
-/// only when the output is Japanese; `source_segments` carries furigana of a
-/// Japanese source only when `source_furigana` is on, since generating it often
-/// costs more output tokens than the translation itself.
-pub fn system_prompt(target_lang: &str, source_furigana: bool) -> String {
+/// Longest text (in characters) still sent with furigana requested. Furigana
+/// tokens cost several times the translation's own output: on long texts the
+/// model then either shortens the translation, drops the furigana, or runs for
+/// minutes (an 8k-character document took 145s with furigana, 23s without).
+pub const FURIGANA_MAX_CHARS: usize = 1000;
+
+pub fn furigana_fits(text: &str) -> bool {
+    text.chars().count() <= FURIGANA_MAX_CHARS
+}
+
+const COMPLETE: &str = "Translate the whole text: never summarize, shorten or leave out any part.";
+
+/// Build the system prompt for a target language. `output_furigana` asks for
+/// furigana of a Japanese translation in `segments`; `source_furigana` asks for
+/// furigana of a Japanese source in `source_segments`, which often costs more
+/// output tokens than the translation itself.
+pub fn system_prompt(target_lang: &str, output_furigana: bool, source_furigana: bool) -> String {
     let (lang_name, output_is_ja) = match target_lang {
         "ja" => ("Japanese", true),
         "en" => ("English", false),
         _ => ("Vietnamese", false),
     };
-    let segments_rule = if output_is_ja {
+    let output_furigana = output_furigana && output_is_ja;
+    let segments_rule = if output_furigana {
         "'segments' = furigana tokens of 'translation' (the Japanese output)."
+    } else if output_is_ja {
+        "'segments' = []."
     } else {
         "'segments' = [] (the output is not Japanese)."
     };
@@ -60,7 +75,7 @@ Japanese, otherwise []."
     } else {
         "'source_segments' = []."
     };
-    let rules = if output_is_ja || source_furigana {
+    let rules = if output_furigana || source_furigana {
         RULES
     } else {
         ""
@@ -68,7 +83,7 @@ Japanese, otherwise []."
     format!(
         "You are a translation engine. Translate the user's text into natural {lang_name}. Return ONLY \
 JSON matching the schema (no markdown fences). 'translation' = the full {lang_name} translation. \
-{segments_rule} {source_rule} {rules}"
+{COMPLETE} {segments_rule} {source_rule} {rules}"
     )
     .trim_end()
     .to_string()
@@ -79,12 +94,25 @@ JSON matching the schema (no markdown fences). 'translation' = the full {lang_na
 /// consistent. The model infers the original language from `original_source`, so
 /// no explicit source-language code is needed. `reply_lang` is the language the
 /// user typed the reply in (the translation language). The user message is the
-/// reply text itself.
-pub fn reply_prompt(original_source: &str, original_translation: &str, reply_lang: &str) -> String {
+/// reply text itself. `furigana` asks for furigana when the output is Japanese.
+pub fn reply_prompt(
+    original_source: &str,
+    original_translation: &str,
+    reply_lang: &str,
+    furigana: bool,
+) -> String {
     let reply_lang_name = match reply_lang {
         "ja" => "Japanese",
         "en" => "English",
         _ => "Vietnamese",
+    };
+    let (segments_rule, rules) = if furigana {
+        (
+            "If that language is Japanese, 'segments' = furigana tokens of 'translation', otherwise [].",
+            RULES,
+        )
+    } else {
+        ("'segments' = [].", "")
     };
     format!(
         "You are a translation engine in an ongoing bilingual conversation. The other party wrote this \
@@ -92,37 +120,63 @@ ORIGINAL message:\n\"{src}\"\nwhich was translated for the user as:\n\"{tr}\"\nT
 REPLY in {reply_lang}. Translate the reply into the SAME LANGUAGE as the ORIGINAL message (so the \
 other party can read it), keeping terminology and tone consistent with the conversation. Return ONLY \
 JSON matching the schema (no markdown fences). 'translation' = the reply rewritten in the original \
-message's language. If that language is Japanese, 'segments' = furigana tokens of 'translation', \
-otherwise []. 'source_segments' = []. {rules}",
+message's language. {COMPLETE} {segments_rule} 'source_segments' = []. {rules}",
         src = original_source,
         tr = original_translation,
         reply_lang = reply_lang_name,
-        rules = RULES
     )
+    .trim_end()
+    .to_string()
 }
 
 #[cfg(test)]
 mod tests {
-    use super::system_prompt;
+    use super::{furigana_fits, reply_prompt, system_prompt, FURIGANA_MAX_CHARS};
 
     #[test]
     fn source_furigana_off_requests_empty_source_segments() {
-        let p = system_prompt("vi", false);
+        let p = system_prompt("vi", false, false);
         assert!(p.contains("'source_segments' = []."));
         assert!(!p.contains("Tokenization rule"));
     }
 
     #[test]
     fn source_furigana_on_requests_source_tokens() {
-        let p = system_prompt("vi", true);
+        let p = system_prompt("vi", false, true);
         assert!(p.contains("furigana tokens of the SOURCE text"));
         assert!(p.contains("Tokenization rule"));
     }
 
     #[test]
     fn japanese_output_keeps_tokenization_rules() {
-        let p = system_prompt("ja", false);
+        let p = system_prompt("ja", true, false);
         assert!(p.contains("'segments' = furigana tokens of 'translation'"));
         assert!(p.contains("Tokenization rule"));
+    }
+
+    #[test]
+    fn japanese_output_without_furigana_requests_no_tokens() {
+        let p = system_prompt("ja", false, false);
+        assert!(p.contains("'segments' = []."));
+        assert!(!p.contains("Tokenization rule"));
+    }
+
+    #[test]
+    fn prompts_ask_for_the_complete_text() {
+        assert!(system_prompt("vi", false, false).contains("never summarize"));
+        assert!(reply_prompt("こんにちは", "Xin chào", "vi", true).contains("never summarize"));
+    }
+
+    #[test]
+    fn reply_without_furigana_drops_the_rules() {
+        let p = reply_prompt("こんにちは", "Xin chào", "vi", false);
+        assert!(p.contains("'segments' = []."));
+        assert!(!p.contains("Tokenization rule"));
+    }
+
+    #[test]
+    fn furigana_fits_counts_characters_not_bytes() {
+        assert!(furigana_fits(&"あ".repeat(FURIGANA_MAX_CHARS)));
+        assert!(!furigana_fits(&"あ".repeat(FURIGANA_MAX_CHARS + 1)));
     }
 }

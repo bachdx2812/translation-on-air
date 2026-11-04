@@ -18,6 +18,10 @@ pub struct Translated {
     /// Furigana of the source text (populated whenever the source is Japanese).
     #[serde(default)]
     pub source_segments: Vec<Segment>,
+    /// Set by the app (never by the model) when furigana was wanted but not
+    /// requested because the text is too long.
+    #[serde(default)]
+    pub furigana_skipped: bool,
 }
 
 /// Translation failures, mapped to stable string codes the frontend renders as

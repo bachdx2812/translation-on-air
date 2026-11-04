@@ -148,7 +148,9 @@ pub async fn translate(
         // stdin dropped here → EOF.
     }
 
-    let output = tokio::time::timeout(Duration::from_secs(60), child.wait_with_output())
+    // The CLI returns everything at once, so this bounds the whole translation:
+    // long enough for long texts, still ending a hung process.
+    let output = tokio::time::timeout(Duration::from_secs(300), child.wait_with_output())
         .await
         .map_err(|_| ProviderError::Timeout)?
         .map_err(|_| ProviderError::Unavailable)?;
