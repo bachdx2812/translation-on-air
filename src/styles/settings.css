@@ -308,3 +308,39 @@
   text-align: right;
   color: var(--danger);
 }
+
+/* Newer release available: accent-tinted card at the top. */
+.update-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 0.5px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  background: color-mix(in srgb, var(--accent) 9%, var(--card));
+}
+.update-banner p {
+  margin: 0;
+}
+.update-title {
+  font-weight: 600;
+}
+.update-banner code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.78rem;
+  color: var(--text-2);
+}
+.update-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.update-actions .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.version-value {
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
