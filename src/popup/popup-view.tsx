@@ -60,6 +60,7 @@ type ReplyTurn = {
   status: "loading" | "done" | "error";
   output: string;
   segments: Segment[];
+  furiganaSkipped?: boolean;
   code?: string;
 };
 
@@ -180,7 +181,15 @@ export function PopupView() {
       const res = await translateReply(trimmed, source, original, targetLang, onPartial);
       setReplies((rs) =>
         rs.map((r, i) =>
-          i === idx ? { ...r, status: "done", output: res.translation, segments: res.segments } : r,
+          i === idx
+            ? {
+                ...r,
+                status: "done",
+                output: res.translation,
+                segments: res.segments,
+                furiganaSkipped: res.furigana_skipped,
+              }
+            : r,
         ),
       );
     } catch (e) {
@@ -289,6 +298,7 @@ function ReplyTurnView({ turn }: { turn: ReplyTurn }) {
           ) : (
             <p className="translation">{turn.output}</p>
           )}
+          {turn.furiganaSkipped && <FuriganaSkippedHint />}
           <ResultActions text={turn.output} />
         </div>
       )}
@@ -318,6 +328,10 @@ function HeaderActions() {
       </button>
     </div>
   );
+}
+
+function FuriganaSkippedHint() {
+  return <p className="hint">Đoạn dài nên không hiện furigana.</p>;
 }
 
 /** Placeholder lines shown until the first streamed words arrive. */
@@ -378,6 +392,7 @@ function TranslationBody({
           ) : (
             <p className="translation">{state.result.translation}</p>
           )}
+          {state.result.furigana_skipped && <FuriganaSkippedHint />}
           <ResultActions text={state.result.translation} />
         </div>
       );

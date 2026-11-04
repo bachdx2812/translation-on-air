@@ -7,11 +7,14 @@ import { PopupView } from "./popup-view";
 // events; stub both so the component mounts in jsdom.
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(() => Promise.resolve({ target_lang: "vi" })),
+  Channel: class {
+    onmessage: (msg: unknown) => void = () => {};
+  },
 }));
 // Keep each event handler so tests can emit capture events.
-const handlers: Record<string, (e: { payload: unknown }) => void> = {};
+const handlers: Record<string, (e: { payload: unknown }) => void | Promise<void>> = {};
 vi.mock("@tauri-apps/api/event", () => ({
-  listen: vi.fn((name: string, cb: (e: { payload: unknown }) => void) => {
+  listen: vi.fn((name: string, cb: (e: { payload: unknown }) => void | Promise<void>) => {
     handlers[name] = cb;
     return Promise.resolve(() => {});
   }),
@@ -93,6 +96,29 @@ describe("PopupView accessibility guidance", () => {
     granted = true;
     expect(await findByText("Đã có quyền Trợ năng.", {}, { timeout: 3000 })).toBeTruthy();
     expect(() => getByText("Cấp quyền")).toThrow();
+
+    vi.mocked(invoke).mockImplementation(() => Promise.resolve({ target_lang: "vi" }));
+  });
+});
+
+describe("PopupView long text", () => {
+  it("says why a long Japanese translation has no furigana", async () => {
+    vi.mocked(invoke).mockImplementation((cmd: string) =>
+      Promise.resolve(
+        cmd === "translate"
+          ? { translation: "長い翻訳", segments: [], source_segments: [], furigana_skipped: true }
+          : { target_lang: "ja" },
+      ),
+    );
+    const { findByText } = render(<PopupView />);
+    await waitFor(() => expect(handlers["capture-done"]).toBeTruthy());
+
+    await act(async () => {
+      await handlers["capture-done"]({ payload: { text: "long text" } });
+    });
+
+    expect(await findByText("長い翻訳")).toBeTruthy();
+    expect(await findByText("Đoạn dài nên không hiện furigana.")).toBeTruthy();
 
     vi.mocked(invoke).mockImplementation(() => Promise.resolve({ target_lang: "vi" }));
   });

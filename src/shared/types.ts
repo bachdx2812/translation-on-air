@@ -6,6 +6,8 @@ export type Translated = {
   translation: string;
   segments: Segment[];
   source_segments: Segment[];
+  /** Furigana was wanted but skipped because the text is too long. */
+  furigana_skipped?: boolean;
 };
 
 export type TargetLang = "vi" | "ja" | "en";
