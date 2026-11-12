@@ -41,7 +41,8 @@ pub async fn translate(
         settings::source_furigana(&app) && providers::furigana::contains_japanese(&text);
     let sys =
         providers::prompt::system_prompt(&target_lang, wants_output && fits, wants_source && fits);
-    let result = run_provider(provider, &model, &effort, &sys, &text, &on_partial).await?;
+    let user = providers::prompt::source_message(&text, &target_lang);
+    let result = run_provider(provider, &model, &effort, &sys, &user, &on_partial).await?;
 
     let segments = if wants_output && fits {
         providers::furigana::validate_segments(&result.translation, result.segments)
@@ -94,7 +95,8 @@ pub async fn translate_reply(
         &reply_lang,
         wants_output && fits,
     );
-    let result = run_provider(provider, &model, &effort, &sys, &reply, &on_partial).await?;
+    let user = providers::prompt::reply_message(&reply);
+    let result = run_provider(provider, &model, &effort, &sys, &user, &on_partial).await?;
 
     let segments = if wants_output && fits {
         providers::furigana::validate_segments(&result.translation, result.segments)
